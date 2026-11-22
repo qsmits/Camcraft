@@ -155,3 +155,50 @@ fn runner_review_requires_heavy_lanes_without_author_results() {
         assert!(common.contains(required), "common heavy check must require: {required}");
     }
 }
+
+/// One priority bullet of the reviewer's step 5: from its lead to the next bullet or the shared tail.
+fn owed_bullet<'a>(common: &'a str, lead: &str) -> &'a str {
+    let rest = common.split(lead).nth(1).expect("priority bullet in step 5");
+    let rest = rest.split("\n   - ").next().expect("bullet");
+    rest.split("\n   A red reached").next().expect("bullet end")
+}
+
+#[test]
+fn an_owed_heavy_result_is_allowed_for_p3_and_lower_only() {
+    // #3467: a P3-or-lower review may defer the heavy lanes to the wave run with the fixed text;
+    // a P1 or P2 review keeps the strict rule (the heavy result before merge-ready).
+    let policy = include_str!("../../.claude/agents/PR-reviewer.md");
+    let common = policy
+        .split("5. **Heavy check on both paths**")
+        .nth(1)
+        .and_then(|s| s.split("6. **Law check against AGENTS.md**").next())
+        .expect("step 5");
+    assert!(common.contains("**Owed heavy result**, #3467"), "step 5 cites the rule");
+    let strict = owed_bullet(common, "   - `P1` or `P2`, or no priority label:");
+    assert!(strict.contains("The heavy result\n     comes before `merge-ready`"), "{strict}");
+    assert!(strict.contains("If the author result is absent, stale or incomplete, run"), "{strict}");
+    assert!(strict.contains("report \"heavy lanes not run\" as a blocker, never a pass"), "{strict}");
+    assert!(!strict.contains("owed to the wave run"), "P1/P2 may not defer: {strict}");
+    let lenient = owed_bullet(common, "   - `P3` or lower:");
+    assert!(lenient.contains("\"not run - owed to the wave run before merge\""), "{lenient}");
+    assert!(lenient.contains("name each owed lane"), "{lenient}");
+    assert!(lenient.contains("The PR can get `merge-ready`"), "{lenient}");
+    assert!(lenient.contains("Its merge waits\n     for a green record that names its final head"), "{lenient}");
+
+    let law = include_str!("../../AGENTS.md");
+    let rule = law.split("**Owed heavy result** (#3467)").nth(1).expect("AGENTS.md rule");
+    let rule = rule.split("\n- **").next().expect("rule end");
+    for required in [
+        "A review of a `P3` or lower PR can set\n    `merge-ready` while no heavy result covers its head",
+        "\"not run - owed to the wave run before merge\"",
+        "The merging\n    session does not merge the PR until a record names that head",
+        "A `P1` or `P2` PR keeps the strict rule",
+    ] {
+        assert!(rule.contains(required), "AGENTS.md owed rule must say: {required}");
+    }
+    let merge = include_str!("../../.claude/skills/merge-ready/SKILL.md");
+    assert!(
+        merge.contains("never merge a PR whose review says \"not\n    run - owed to the wave run before merge\" until a green record names its\n    final head"),
+        "the merge step refuses an owed PR without a record"
+    );
+}

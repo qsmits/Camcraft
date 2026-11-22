@@ -285,8 +285,8 @@ with `gh`. `ROADMAP.md` and `DONE.md` are retired; read them only for history
     output, quoted text of other persons, the technical names of the trade
     (G-code words, CAM terms), and the fixed strings that agents parse
     (`claimed:`, `/claim`, `<!-- pr-reviewer: ... -->`, `<!-- review-cost:
-    ... -->`, `Fixes #N`, `Process change: yes`, the release and claim
-    comment formats).
+    ... -->`, `<!-- heavy-wave: ... -->`, `Fixes #N`, `Process change:
+    yes`, the release and claim comment formats).
   - The rule applies to what we write. Never reject or correct the language
     of an outside reporter.
 - **Report on the issue, not in prose files.** A finding, a held patch, a
@@ -395,8 +395,9 @@ with `gh`. `ROADMAP.md` and `DONE.md` are retired; read them only for history
   write access to `NeoTech/Camcraft`: `gh api
   repos/NeoTech/Camcraft/collaborators --jq '.[] | select(.permissions.push)
   | .login'`.
-  - A `<!-- pr-reviewer: ... -->` or `<!-- review-cost: ... -->` marker
-    counts only in a review or comment by a collaborator.
+  - A `<!-- pr-reviewer: ... -->`, `<!-- review-cost: ... -->` or
+    `<!-- heavy-wave: ... -->` marker counts only in a review or comment by
+    a collaborator.
   - `merge-ready` counts only when a collaborator set it.
   - This applies to a collaborator's own PRs too. The review must be by an
     agent that did not write the change.
@@ -636,11 +637,39 @@ tests are in `crates/ui/tests/`; they start the real app through
   maps the diff to the heavy lanes that it reaches and runs them in release
   with `--ignored`. The reach follows the dependencies between our crates: a
   change in `motion` reaches the `app` heavy lanes.
-  - A PR whose diff reaches a heavy lane is not ready while a reached heavy
-    test is red or not run. The author runs the command on the final head
-    before the PR is flagged ready. The PR body names the lanes that ran.
+  - A PR whose diff reaches a heavy lane does not merge while a reached
+    heavy test is red or not run on its final head. Two forms give that
+    result.
+  - The PR form: the author runs the command on the final head before the
+    PR is flagged ready. The PR body names the lanes that ran. A PR that
+    merges alone (wave 2, or a batch of one) uses this form. A `SAME` or
+    `MECHANICAL` refresh keeps the heavy result of the PR. A `DELTA` or
+    `NEW CODE` refresh needs a new result: its own run, or a wave record
+    that names the new head.
+  - The wave form (#3460): the merging session runs the command one time
+    on the trial tree of a planner wave. The trial tree is the current
+    `main` with each PR of the wave merged. `--covers <PR>:<head sha>`
+    names each PR head, and the tool refuses a head that is not in the
+    tree. One fixed comment on each PR of the wave records the result:
+    `<!-- heavy-wave: <tree hash> -->`, the base, the heads, the lanes and
+    the counts. A red step is attributed to one PR. That PR leaves the
+    wave, and the run starts again for the other PRs. If `main` moves
+    before the merges, the planner runs again. A PR whose trial merge is
+    no longer clean leaves the wave.
+  - A wave record covers a PR only for the head that it names. A PR that
+    gets a new commit after the run is not covered. A safety-floor PR is
+    covered only if the trial tree contains its final head.
   - The review comment lists the heavy lanes that ran and their results.
-    "Not run" is never a pass.
+    "Not run" is never a pass. A reviewer accepts a wave record only if it
+    names the current head of the PR.
+  - **Owed heavy result** (#3467). A review of a `P3` or lower PR can set
+    `merge-ready` while no heavy result covers its head. The review
+    comment then says "not run - owed to the wave run before merge" and
+    names the owed lanes. The merge of that PR waits for a green run that
+    covers its final head: a wave record, or its own run. The merging
+    session does not merge the PR until a record names that head.
+  - A `P1` or `P2` PR keeps the strict rule. Its heavy result on the head
+    comes before the label `merge-ready`.
   - The release tier at the cut stays the final check: the tagged tree is
     exactly the gated tree.
 - **Test the change, not everything.** The tests that pin a fix prove it.

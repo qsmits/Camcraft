@@ -150,14 +150,35 @@ merge.
    return here. Do not repeat the local quick tests in step 4.
    Run `cargo xtask gate heavy --base <main ref> --dry-run` in the review
    worktree. It lists the release `--ignored` lanes that the diff reaches.
-   If no lanes are reached, record that result. Otherwise check the PR body
-   for a green author run of all reached lanes on this head. Rely on that
-   result only if the head and all reached lanes match, and say so.
-   If the author result is absent, stale or incomplete, run
-   `cargo xtask gate heavy --base <main ref>` locally (outside the step 4
-   time box, one command, FOREGROUND). If the reached lanes cannot run,
-   report "heavy lanes not run" as a blocker, never a pass. A red reached
-   heavy test is a blocker. Continue to step 6 only after this check.
+   If no lanes are reached, record that result. Otherwise look for a green
+   result of all reached lanes on this head, from one of two sources:
+   - the PR form: an author run named in the PR body;
+   - the wave form (#3460): a collaborator's comment that starts with
+     `<!-- heavy-wave: <tree hash> -->`. Accept it only if its `covers:`
+     line names the current head of this PR, all reached lanes are in it,
+     and its verdict is `PASS`. A wave record covers a PR only for the head
+     that it names. A safety-floor PR is covered only if the trial tree
+     contains its final head.
+   Rely on that result only if the head and all reached lanes match, and
+   say which source it is. A wave record that names this head takes the
+   place of the author result.
+   When no result covers this head, the priority label of the PR decides
+   (AGENTS.md **Owed heavy result**, #3467):
+   - `P1` or `P2`, or no priority label: the strict rule. The heavy result
+     comes before `merge-ready`.
+     If the author result is absent, stale or incomplete, run
+     `cargo xtask gate heavy --base <main ref>` locally (outside the step 4
+     time box, one command, FOREGROUND). If the reached lanes cannot run,
+     report "heavy lanes not run" as a blocker, never a pass.
+   - `P3` or lower: write "not run - owed to the wave run before merge"
+     and name each owed lane (`<crate> heavy: <target>`). This is not a
+     pass and not a blocker. The PR can get `merge-ready`. Its merge waits
+     for a green record that names its final head (`merge-ready` skill,
+     step 4a). You can also run the lanes locally, as for `P1`.
+   A red reached
+   heavy test is a blocker. A wave record with `FAIL` on this head is a
+   blocker.
+   Continue to step 6 only after this check.
 6. **Law check against AGENTS.md** - for each, cite file:line on a finding:
    - Prime Directive: no `unwrap()/expect()/panic!` outside tests; numeric
      casts and indexing safe; degenerate input refused by name; nothing that
@@ -212,8 +233,10 @@ merge.
      summary), "locally", or both (Windows-only readings, ui re-runs);
      a runner run that gave no verdict is named with the fallback taken;
    - Heavy lanes: each reached lane (`<crate> heavy: <target>`) with its
-     result and who ran it (the author's run that the PR body names, or
-     this review), or "the diff reaches no heavy lane";
+     result and who ran it (the author's run that the PR body names, the
+     `heavy-wave` record with its tree hash, or this review), or "the diff
+     reaches no heavy lane", or for a `P3` or lower PR "not run - owed to
+     the wave run before merge" with the list of owed lanes;
    - Requested before merge (numbered, each with file:line and the fix);
    - Questions / notes (not blocking);
    - closing line: "A maintainer will approve and merge by hand."

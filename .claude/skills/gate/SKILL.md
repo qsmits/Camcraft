@@ -21,7 +21,7 @@ wrappers `scripts/gate.ps1` (`-Tier quick`, `-Test <name>`) and
 |---|---|---|
 | quick | `cargo xtask gate quick [--base main]` | Only the test binaries that the diff touches, from the gate maps and the touched crates. One build for each crate, then one step for each binary. Debug. No heavy lanes. Target: 5 minutes. |
 | batch | `cargo xtask gate batch` | One debug build (`--no-run`) for each crate, then one step for each test target (`<crate> suites: lib`, `<crate> suites: <binary>`) that is not in `SLOW_BINARIES`, the `camcraft-kernel` suites (#1702), the ui suites from `crates/ui`, clippy. The steps run in the parallel lanes of `lanes.rs` (#2727). No release-mode heavy lanes. Target: 20 minutes. |
-| heavy | `cargo xtask gate heavy [--base main]` | The release `--ignored` heavy lanes that the diff reaches, also through the crate dependencies (#2568). One release build of the reached crates, then one step for each reached target. Before a PR is ready and at its review. |
+| heavy | `cargo xtask gate heavy [--base main]` | The release `--ignored` heavy lanes that the diff reaches, also through the crate dependencies (#2568). One release build of the reached crates, then one step for each reached target. Before a PR is ready and at its review, or one time for a merge wave on its trial tree with `--covers <PR>:<head sha>` (#3460). |
 | release | `cargo xtask gate release` | One step for each debug test target (`lib`, `bins`, each binary, `doc`) and the `--ignored` heavy lanes in release. Only at a cut. On the cut runner: `cargo xtask gate release --no-snapshots`. |
 | test | `cargo xtask gate test <name> [--crate c] [--binary b] [--exact]` | One test by name. The plain form is `cargo test -p <crate> --test <binary> -- <name> --exact`. |
 
@@ -164,6 +164,30 @@ Quick prints its selection before it runs:
   - A diff that reaches no heavy lane gives a plan with no step.
   - The steps have the names of the release tier (`<crate> heavy:
     <target>`), so `--only` and `--failed` select them.
+- The wave form (#3460, AGENTS.md "Heavy lanes at review"):
+  `cargo xtask gate heavy --base origin/main --covers <PR>:<head sha>
+  [--covers ...]` in the trial tree of a merge wave. The `merge-ready`
+  skill makes the tree and posts the record.
+  - The flag is repeatable and applies to the heavy tier only. A bad value,
+    and `--covers` with `--only` or `--failed`, is refused with the usage
+    text.
+  - The tool refuses a sha that is not a commit, a head that is not an
+    ancestor of `HEAD`, and a working tree with changes.
+  - The plan header and the summary print `covers: #<PR> <sha>` for each
+    head, `tree: <HEAD^{tree}>` and `base: <ref> <merge-base sha>`.
+  - A real run writes `covers.txt` to the log directory: the header, each
+    step with its result and note, the counts (planned, ran, ok, failed),
+    the wall time and the verdict. The verdict is `PASS`, `FAIL`,
+    `INCOMPLETE` (a planned step did not run), `VOID` or `NO LANE` ("the
+    wave reaches no heavy lane"). Only `PASS` covers the heads.
+    `--dry-run` prints the header and runs nothing.
+  - A wave record covers a PR only for the head that it names. A
+    safety-floor PR is covered only if the trial tree contains its final
+    head. "Not run" is never a pass.
+  - **Owed heavy result** (#3467): a review of a `P3` or lower PR can set
+    `merge-ready` with "not run - owed to the wave run before merge". The
+    merge waits for a green record that names the final head. A `P1` or
+    `P2` PR needs its heavy result before `merge-ready`.
 - When you move a test to a lane, the `#[test]` count before and after must
   be the same, and the ignored set keeps its golden asserts.
 

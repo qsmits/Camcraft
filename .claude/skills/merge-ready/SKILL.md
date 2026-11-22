@@ -230,6 +230,73 @@ approved set before merging: the plan changes.
 
 ## 4. Merge the approved ones, as one batch
 
+### 4a. One heavy run for wave 1 (#3460)
+
+AGENTS.md "Heavy lanes at review", the wave form. Do this step when one or
+more wave-1 PRs reach a heavy lane and have no green heavy result on their
+current head. A PR whose review says "not run - owed to the wave run
+before merge" (**Owed heavy result**, #3467) is such a PR. If no wave-1 PR
+reaches a heavy lane, skip this step.
+
+1. Read the current head of each wave-1 PR:
+   `gh pr view N --json headRefOid --jq .headRefOid`.
+2. Make the trial tree in the main checkout's `.claude/worktrees/`:
+   `git fetch origin` and
+   `git worktree add --detach .claude/worktrees/heavy-wave origin/main`.
+3. In that worktree, merge each wave-1 PR in the planner's order:
+   `git fetch origin pull/N/head` and
+   `git merge --no-ff --no-edit FETCH_HEAD`. Make sure that `FETCH_HEAD` is
+   the head of step 1. Never push the trial tree.
+4. Run the gate there one time, in the foreground or in the background
+   with a completion notice:
+   `cargo xtask gate heavy --base origin/main --covers A:<sha> --covers B:<sha> ...`.
+   Name each wave-1 PR. Do not add `--only` or `--failed`: the tool
+   refuses them with `--covers`. The tool refuses a head that is not in
+   the tree.
+5. Record the result on each PR of the wave with this one comment form.
+   Take the values from `covers.txt` in the run's log directory:
+
+   ```
+   <!-- heavy-wave: <tree hash> -->
+   Heavy wave run (#3460) · tree <tree hash> · base origin/main <merge-base sha>
+   covers: #A <head sha> · #B <head sha> · ...
+   lanes: <crate> heavy: <target> ok (<secs>s) · ... (or: the wave reaches no heavy lane)
+   counts: <planned> planned, <ran> ran, <ok> ok, <failed> failed · verdict PASS | FAIL | INCOMPLETE | VOID | NO LANE
+   known-fail: SKIPPED (known fail, #N): <test> · ... (or: none)
+   wall: <minutes> min · gate-logs/heavy-<stamp>/covers.txt
+   ```
+
+   Only `PASS` covers the heads. `NO LANE` means that the wave reaches no
+   heavy lane: write "the wave reaches no heavy lane" in the `lanes:` line.
+   `INCOMPLETE` (a planned step did not run) and `VOID` are no result: run
+   step 4 again.
+6. A red step: attribute it to one PR. Take the PR whose diff the red test
+   reads. If two or more PRs reach the lane and the cause is not clear,
+   take the last of them in the planner's order. Post the record with
+   `FAIL` on that PR, set `needs-rework` and remove `merge-ready` with one
+   comment (AGENTS.md, #3382). Take that PR out of the wave. Make a new
+   trial tree without it and run step 4 again for the other PRs.
+7. Remove the trial tree after the run:
+   `git worktree remove --force .claude/worktrees/heavy-wave`.
+8. The merges of the wave must give exactly the heads that the run
+   covered. Read each head again just before its merge. A PR that has a new
+   commit after the run is not covered: take it out of the wave, and give
+   it the PR form of the rule.
+9. If `origin/main` moved after the run (its sha is not the `base` of the
+   record), run `cargo xtask merge-plan` again. A PR whose trial merge is no
+   longer clean leaves the wave. Merge only the heads that the record
+   names.
+10. A wave-2 PR merges alone and keeps the PR form of the rule. A `SAME` or
+    `MECHANICAL` refresh keeps the heavy result that the PR has. A `DELTA`
+    or `NEW CODE` refresh needs a new result: its own `gate heavy` run, or
+    a wave record that names the new head.
+11. **Owed heavy result** (#3467): never merge a PR whose review says "not
+    run - owed to the wave run before merge" until a green record names its
+    final head (a `heavy-wave` record with `PASS`, or its own run). Without
+    that record, leave the PR out of the merges of this run and list it in
+    the report as "heavy owed". A `P1` or `P2` PR with an owed heavy result
+    is not `merge-ready`: report it.
+
 **Wave 1**, in the planned order. For each PR:
 
 1. Retarget any stacked child of this PR to `main` first.
