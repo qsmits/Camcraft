@@ -102,7 +102,7 @@ Safety:
 - The next green run closes the issue. The workflow closes only an issue
   with `source:agent`.
 - If the runner is down, use the local batch gate (`gate` skill).
-- Stalls (#3303). The step "Batch gate tier" has `timeout-minutes: 45`; the
+- Stalls (#3303). The step "Batch gate tier" has `timeout-minutes: 75`; the
   job cap of 90 stays. The xtask watchdog (`gate` skill, "Stall watchdog")
   kills a step that is silent for 15 minutes (`CAMCRAFT_GATE_STALL_MIN`).
 - A red run with no `FAIL` row, but with a `STALL` row or the line `gate

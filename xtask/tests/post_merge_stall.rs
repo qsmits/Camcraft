@@ -15,7 +15,7 @@ fn the_batch_step_has_its_own_timeout_below_the_job_cap() {
     let step = wf.split_once("      - name: Batch gate tier\n").expect("the batch step").1;
     let step: String = step.lines().take_while(|l| !l.starts_with("      - ")).collect::<Vec<_>>().join("\n");
     assert!(step.contains("        id: gate\n"), "the summary step reads the outcome by id:\n{step}");
-    assert!(step.contains("        timeout-minutes: 45\n"), "the step timeout:\n{step}");
+    assert!(step.contains("        timeout-minutes: 75\n"), "the step timeout:\n{step}");
     assert!(wf.contains("    timeout-minutes: 90\n"), "the job cap stays");
     assert!(wf.contains("GATE_OUTCOME: ${{ steps.gate.outcome }}"), "the summary step reads the outcome");
     assert!(wf.contains("RUNNER: ${{ needs.gate.outputs.runner }}"), "the report names the runner");

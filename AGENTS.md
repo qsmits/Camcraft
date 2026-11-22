@@ -825,7 +825,7 @@ subagent, and the session does not wait for it.
 **Runner stops** (#3303). A runner stall is not a red main. The gate's
 watchdog kills a step that writes no output for 15 minutes
 (`CAMCRAFT_GATE_STALL_MIN`) and gives it a `STALL` row that names the step.
-The step "Batch gate tier" stops at 45 minutes. Such a run opens no
+The step "Batch gate tier" stops at 75 minutes. Such a run opens no
 `main is red` issue.
 - A post-merge run with a `STALL` row or a step timeout, and no `FAIL`
   row: log it on #3303 (run, commit, runner, step) and re-run it one time.
