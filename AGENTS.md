@@ -719,7 +719,7 @@ tests are in `crates/ui/tests/`; they start the real app through
 - **The cut runner**, **The post-merge gate** and **The PR test runner**
   are self-hosted. The `runners` skill has their installation, labels and
   safety rules.
-  - `cut.yml` runs the release tier of a cut on `[self-hosted, linux]`.
+  - `cut.yml` runs the release tier of a cut on `[self-hosted, camcraft-cut]`: only a runner given that label takes it, never a post-merge or PR-test runner (#3253).
   - `post-merge.yml` runs the batch tier on each push to `main`, on the
     runner label `camcraft-post-merge`.
   - `pr-test.yml` (`workflow_dispatch` only) builds and tests a PR for a
