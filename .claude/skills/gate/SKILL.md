@@ -129,6 +129,25 @@ Quick prints its selection before it runs:
   two gates at `CAMCRAFT_GATE_JOBS=3` on 6 cores). A plain `cargo` call
   takes its own `-j`.
 
+## Stall watchdog (#3303)
+
+- Each gate step runs under a watchdog. Output is the growth of the step
+  log (the child and each descendant write there) and of a piped stdout.
+- A debug step with no output for 15 minutes is a stall. A `--release` or
+  `--ignored` step (a release link, a heavy test) gets 4 times the time:
+  60 minutes.
+- `CAMCRAFT_GATE_STALL_MIN=<n>` sets the debug stall time in whole minutes
+  (1 or more). The release time is 4 times the value. A bad value uses the
+  default and prints a diagnostic that names the value, as for
+  `CAMCRAFT_GATE_JOBS`.
+- At a stall the gate kills the process tree of the step. It prints
+  `STALL <minutes>min <step>`, the last lines of the step and the processes
+  that were alive. The log gets an `error: gate watchdog: STALL` line, thus
+  `--failed` selects the step again.
+- The summary has a `STALL` row, not a `FAIL` row. The other steps go on.
+- Exit code: 1 for any `FAIL` row or a void run, 3 for `STALL` rows only,
+  else 0.
+
 ## Slow binaries and heavy lanes
 
 - Batch does not run the debug binaries in `SLOW_BINARIES`

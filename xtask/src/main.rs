@@ -104,6 +104,9 @@ mod unit_sweep_tests;
 #[cfg(test)]
 mod tests;
 mod verdict;
+mod watchdog;
+#[cfg(test)]
+mod watchdog_tests;
 #[cfg(test)]
 mod verdict_tests;
 #[cfg(test)]

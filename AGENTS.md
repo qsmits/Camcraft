@@ -822,6 +822,21 @@ merge that the workflow covers. If the runner is down, the `gate` skill has
 the local fallback: one batch gate for each merge batch, by a gate-runner
 subagent, and the session does not wait for it.
 
+**Runner stops** (#3303). A runner stall is not a red main. The gate's
+watchdog kills a step that writes no output for 15 minutes
+(`CAMCRAFT_GATE_STALL_MIN`) and gives it a `STALL` row that names the step.
+The step "Batch gate tier" stops at 45 minutes. Such a run opens no
+`main is red` issue.
+- A post-merge run with a `STALL` row or a step timeout, and no `FAIL`
+  row: log it on #3303 (run, commit, runner, step) and re-run it one time.
+- A second `STALL` of the same step at the same commit is a red main, not
+  a runner stop: a commit that deadlocks a test stalls on each run. File it
+  as a red main. Do not re-run it again.
+- A gate job with no output at 50 minutes is a runner stop: cancel only
+  that run and log it on #3303.
+- A run that fails with no `FAIL` row and no `STALL` row is re-run one
+  time.
+
 **A cut goes PR review -> merge to main -> tag.** The `release-cut` skill
 has the procedure. Its rules:
 
