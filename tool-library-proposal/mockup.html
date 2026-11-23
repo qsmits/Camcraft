@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tool library redesign - mock-ups</title>
+<style>
+  :root{
+    /* CamCraft default dark theme tokens (crates/ui theme/tables.rs) */
+    --ink:#23262B; --ink-alt:#2C3037; --well:#1B1E22; --viewport:#171A1F;
+    --text:#D6DAE0; --dim:#9AA1AB; --faint:#6E757E; --border:#3D434C;
+    --accent:#356DA8; --accent-hover:#4A86C2; --bad:#E65A50; --ok:#5BAA7A;
+    --shank:#7A828E; --holder:#565C68; --cutter:#C9A45A; --dimline:#8FB4DD;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#101215;color:var(--text);font:13px/1.45 -apple-system,"Segoe UI",Inter,system-ui,sans-serif}
+  .doc{max-width:1180px;margin:0 auto;padding:20px 16px 60px}
+  h1{font-size:20px;margin:0 0 4px} h2{font-size:15px;margin:28px 0 8px}
+  p.lead{color:var(--dim);margin:0 0 14px;max-width:820px}
+  .switch{display:flex;gap:6px;flex-wrap:wrap;margin:14px 0}
+  .switch button{background:var(--ink-alt);color:var(--text);border:1px solid var(--border);padding:6px 12px;border-radius:4px;cursor:pointer;font:inherit}
+  .switch button.on{background:var(--accent);border-color:var(--accent-hover);color:#fff}
+  .note{color:var(--dim);font-size:12px;max-width:860px}
+  .note b{color:var(--text)}
+
+  /* app backdrop */
+  .app{background:var(--viewport);border:1px solid var(--border);border-radius:6px;overflow:hidden;position:relative}
+  .ribbon{background:var(--ink);border-bottom:1px solid var(--border);display:flex;gap:18px;padding:6px 12px;align-items:flex-end;overflow-x:auto}
+  .grp{display:flex;flex-direction:column;gap:2px}
+  .grp .cells{display:flex;gap:4px}
+  .cell{width:54px;text-align:center;font-size:10.5px;color:var(--dim);padding:4px 2px;border-radius:3px;border:1px solid transparent}
+  .cell i{display:block;height:22px;font-style:normal;font-size:16px;color:var(--text)}
+  .cell.on{background:var(--accent);color:#fff;border-color:var(--accent-hover)} .cell.on i{color:#fff}
+  .grp .cap{font-size:10px;color:var(--faint);text-align:center}
+  .stage{padding:22px 14px 26px;min-height:600px;display:flex;justify-content:center;
+         background:linear-gradient(#171A1F,#14171b)}
+
+  /* dialog */
+  .dlg{width:100%;max-width:1020px;background:var(--ink);border:1px solid var(--border);border-radius:6px;
+       box-shadow:0 14px 40px rgba(0,0,0,.55);display:flex;flex-direction:column;min-height:560px}
+  .dlg header{display:flex;align-items:center;gap:10px;padding:8px 10px;border-bottom:1px solid var(--border);background:var(--ink-alt);border-radius:6px 6px 0 0}
+  .dlg header .title{font-weight:600} .dlg header .sp{flex:1}
+  .x{color:var(--dim);cursor:default}
+  .dlg footer{display:flex;gap:8px;align-items:center;padding:8px 10px;border-top:1px solid var(--border)}
+  .dlg footer .sp{flex:1} .hint{color:var(--faint);font-size:11.5px}
+  .btn{background:var(--ink-alt);color:var(--text);border:1px solid var(--border);padding:4px 10px;border-radius:3px;cursor:pointer;font:inherit}
+  .btn:hover{border-color:var(--accent-hover)} .btn.pri{background:var(--accent);border-color:var(--accent-hover);color:#fff}
+  .btn.ghost{background:transparent}
+  input,select{background:var(--well);color:var(--text);border:1px solid var(--border);border-radius:3px;padding:3px 6px;font:inherit;min-width:0}
+  input:focus,select:focus{outline:1px solid var(--accent-hover)}
+  .body{display:flex;flex:1;min-height:0}
+
+  /* browse */
+  .cats{width:210px;border-right:1px solid var(--border);padding:8px 6px;overflow:auto;flex:none}
+  .seg{display:flex;border:1px solid var(--border);border-radius:3px;overflow:hidden;margin-bottom:8px}
+  .seg span{flex:1;text-align:center;padding:3px 0;font-size:11.5px;color:var(--dim);cursor:pointer}
+  .seg span.on{background:var(--accent);color:#fff}
+  .cats .h{color:var(--faint);font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;margin:10px 6px 2px}
+  .cat{display:flex;justify-content:space-between;padding:3px 8px;border-radius:3px;cursor:pointer;color:var(--text)}
+  .cat small{color:var(--faint)} .cat.on{background:var(--accent);color:#fff} .cat.on small{color:#dfe9f5}
+  .list{flex:1;display:flex;flex-direction:column;min-width:0}
+  .bar{display:flex;gap:6px;padding:8px;border-bottom:1px solid var(--border);align-items:center;flex-wrap:wrap}
+  .bar input{flex:1;min-width:140px}
+  table{border-collapse:collapse;width:100%}
+  .rows{overflow:auto;flex:1}
+  th{position:sticky;top:0;background:var(--ink);text-align:left;font-weight:500;color:var(--dim);font-size:11.5px;padding:5px 8px;border-bottom:1px solid var(--border)}
+  td{padding:4px 8px;border-bottom:1px solid #2b2f36;white-space:nowrap}
+  tbody tr{cursor:pointer} tbody tr:hover{background:var(--ink-alt)}
+  td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+  .thumb{width:20px;height:30px;display:block}
+  .pill{font-size:10.5px;border:1px solid var(--border);border-radius:9px;padding:0 6px;color:var(--dim)}
+  .pill.doc{border-color:var(--accent);color:#9cc3ea}
+
+  /* editor */
+  .rail{width:190px;border-right:1px solid var(--border);overflow:auto;padding:6px;flex:none}
+  .rail .t{padding:3px 6px;border-radius:3px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rail .t.on{background:var(--accent);color:#fff} .rail .g{color:var(--faint);font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;margin:8px 6px 2px}
+  .form{width:360px;border-right:1px solid var(--border);display:flex;flex-direction:column;flex:none;min-width:0}
+  .tabs{display:flex;border-bottom:1px solid var(--border);padding:0 6px}
+  .tabs span{padding:6px 10px;color:var(--dim);cursor:pointer;border-bottom:2px solid transparent}
+  .tabs span.on{color:var(--text);border-bottom-color:var(--accent-hover)}
+  .pane{padding:10px;overflow:auto;flex:1}
+  .grid{display:grid;grid-template-columns:150px 1fr 34px;gap:5px 8px;align-items:center}
+  .grid label{color:var(--dim)} .grid .u{color:var(--faint);font-size:11.5px}
+  .grid .full{grid-column:1/-1} .sec{grid-column:1/-1;color:var(--faint);font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;margin-top:8px;border-bottom:1px solid #2b2f36;padding-bottom:2px}
+  .draw{flex:1;background:var(--well);display:flex;flex-direction:column;min-width:0}
+  .draw .opts{display:flex;gap:12px;padding:6px 10px;color:var(--dim);font-size:11.5px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+  .draw svg{flex:1;width:100%;min-height:440px}
+  .rec td input{width:68px;text-align:right} .rec td{white-space:nowrap}
+  .rec .calc{color:var(--faint);font-size:11.5px}
+  .star{color:#E3B341}
+  .warn{color:#E3B341;font-size:11.5px;margin-top:8px}
+  @media (max-width:860px){ .body{flex-direction:column} .cats,.rail,.form{width:auto;border-right:0;border-bottom:1px solid var(--border)} .cats{max-height:170px}.rail{max-height:110px} }
+  .mode{display:flex;gap:2px;margin-left:14px}
+  .mode span{padding:3px 12px;border-radius:3px;color:var(--dim);cursor:pointer;border:1px solid transparent}
+  .mode span.on{background:var(--well);color:var(--text);border-color:var(--border)}
+  .link{color:#9cc3ea;cursor:pointer;text-decoration:underline;text-decoration-color:#4a6f96}
+  .ro{color:var(--text);font-variant-numeric:tabular-nums}
+  .asm{grid-column:1/-1;border:1px solid var(--border);border-radius:4px;padding:8px;background:var(--well);display:grid;grid-template-columns:150px 1fr 34px;gap:5px 8px;align-items:center}
+  .used div{padding:2px 0}
+  body.shot .doc>*:not(.app){display:none} body.shot .doc{padding:0;max-width:none} body.shot .stage{min-height:0}
+</style>
+</head>
+<body>
+<div class="doc">
+  <h1>Tool library redesign: interactive mock-up</h1>
+  <p class="lead">One dialog, opened from the <b>Tools</b> cell of the ribbon. The list folds into a rail when you open an item (variant B).  Holders are first-class items with their own list and editor, and each field has one home. The mock-up is interactive.</p>
+  <p class="note"><b>One home for each field.</b> A <i>tool</i> owns its cutter and shank. A <i>holder</i> owns its taper, clamp and shape. The <i>assembly</i> of the two owns one number: the stick-out. The gauge length is computed and shown, not typed.</p>
+
+  <div class="app">
+    <div class="ribbon">
+      <div class="grp"><div class="cells"><div class="cell"><i>▢</i>New</div><div class="cell"><i>⬒</i>Model</div><div class="cell"><i>⭳</i>Save</div><div class="cell"><i>⇢</i>Post</div></div><div class="cap">File</div></div>
+      <div class="grp"><div class="cells"><div class="cell"><i>▤</i>Setups</div><div class="cell"><i>◫</i>Stock</div><div class="cell"><i>⌖</i>Origin</div><div class="cell on"><i>⚒</i>Tools</div></div><div class="cap">Setup</div></div>
+      <div class="grp"><div class="cells"><div class="cell"><i>◰</i>2D</div><div class="cell"><i>◳</i>3D</div><div class="cell"><i>◎</i>Drill</div></div><div class="cap">Operations</div></div>
+    </div>
+    <div class="stage"><div class="dlg" id="dlg"></div></div>
+  </div>
+
+  <h2>What changes against today</h2>
+  <p class="note">
+    <b>Today:</b> "Tool library" is a tab beside Properties. It lists the built-in catalog with an Add button. A tool is edited on a property page with four folded groups (Geometry, Holder, Cutting data, Catalog), the holder is a combo box inside the tool, and the drawing is a 260 px square.<br>
+    <b>Proposal:</b> one dialog with two kinds of item, Tools and Holders. Each has a list, a rail and an editor with a large dimensioned drawing. A tool picks a holder and sets the stick-out; the holder's own data is edited in one place and all tools that use it follow. Recipes are a tab of the tool. Each Apply stays one undoable command (<code>AddTool</code>, <code>ChangeTool</code>, <code>SetToolBody</code>, <code>ApplyCuttingData</code>), so the MCP tools do not change.
+  </p>
+  <h2>Open questions for the maintainers</h2>
+  <p class="note">
+    1. Dialog or dockable window: may the user keep it open beside the viewport?<br>
+    2. "My library" needs a user library store. Issue #3645 plans one; this dialog would be its front end.<br>
+    3. Holders are built in today (<code>holder_library.rs</code>). User-made holders need a store and a file format. (#808, #3648)<br>
+    4. Recipes: one row per material on the tool (as <code>CuttingRow</code> today), or a named, shared object? (#3393)<br>
+    5. Tool + holder + stick-out is the smallest "assembly". Does this dialog become the assembly editor of #2452 / #3644 to #3648 (extensions, inserts)?<br>
+    6. Flutes in the drawing: decoration only, from <code>flutes</code> and <code>helix_deg</code>. No new geometry law.
+  </p>
+</div>
+
+<script>
+const HOLDERS=[
+ {id:'h1',name:'BT40 ER32 x 70',taper:'BT40',clamp:'ER32 collet',lo:3,hi:20,gl:70,hd:50,nose:40},
+ {id:'h2',name:'BT40 ER16 x 60',taper:'BT40',clamp:'ER16 collet',lo:1,hi:10,gl:60,hd:28,nose:22},
+ {id:'h3',name:'BT40 Weldon 16 x 63',taper:'BT40',clamp:'Weldon side lock',lo:16,hi:16,gl:63,hd:48,nose:48},
+ {id:'h4',name:'BT30 ER20 x 60',taper:'BT30',clamp:'ER20 collet',lo:2,hi:13,gl:60,hd:34,nose:28},
+];
+const TOOLS=[
+ {id:1,t:1,name:'EM-1000-3FL',kind:'Flat end mill',cat:'flat',d:10,fl:22,sd:10,so:35,cr:0,flutes:3,helix:35,h:'h1',src:'doc',rec:3},
+ {id:2,t:2,name:'EM-0600-2FL',kind:'Flat end mill',cat:'flat',d:6,fl:13,sd:6,so:24,cr:0,flutes:2,helix:30,h:'h2',src:'doc',rec:2},
+ {id:3,t:3,name:'BN-0800',kind:'Ball nose',cat:'ball',d:8,fl:16,sd:8,so:40,cr:4,flutes:2,helix:30,h:'h1',src:'doc',rec:1},
+ {id:4,t:4,name:'DR-0600-HSS',kind:'Drill',cat:'drill',d:6,fl:28,sd:6,so:50,cr:0,flutes:2,helix:28,tip:118,h:'h2',src:'doc',rec:2},
+ {id:5,t:5,name:'TAP-M10x1.5',kind:'Tap',cat:'tap',d:10,fl:20,sd:8,so:45,cr:0,flutes:3,helix:15,h:'h1',src:'doc',rec:1},
+ {id:6,t:0,name:'EM-1600-4FL',kind:'Flat end mill',cat:'flat',d:16,fl:32,sd:16,so:48,cr:0,flutes:4,helix:38,h:'h3',src:'lib',rec:4},
+ {id:7,t:0,name:'BU-1200-R1',kind:'Bull nose',cat:'bull',d:12,fl:26,sd:12,so:40,cr:1,flutes:4,helix:35,h:'h1',src:'lib',rec:2},
+ {id:8,t:0,name:'CH-1000-90',kind:'Chamfer mill',cat:'chamfer',d:10,fl:5,sd:10,so:30,cr:0,flutes:4,helix:0,tip:90,h:'h1',src:'lib',rec:1},
+];
+const CATS=[['Milling'],['all','All tools'],['flat','Flat end mills'],['ball','Ball nose'],['bull','Bull nose'],['chamfer','Chamfer mills'],['form','Thread, T-slot, form'],
+ ['Hole making'],['drill','Drills'],['tap','Taps'],['bore','Boring bars'],['Turning'],['turn','Inserts and blades'],['Other'],['probe','Touch probes'],['proc','Wire, electrode, torch, jet']];
+const MATS=[['Aluminium 6061',12000,1800,5,4,true],['Mild steel',4200,640,3,2.5,false],['Stainless 304',2600,300,2,1.5,false]];
+let S={mode:'tools',screen:'browse',cat:'all',src:'doc',taper:'all',tool:TOOLS[0],holder:HOLDERS[0],tab:'tool',dims:true,flutes:true,showHolder:true};
+const $=s=>document.querySelector(s), H=id=>HOLDERS.find(h=>h.id==id);
+const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const users=h=>TOOLS.filter(t=>t.h==h.id);
+
+function thumb(t){const w=Math.max(4,t.d/1.6);return `<svg class="thumb" viewBox="0 0 20 30"><rect x="3" y="0" width="14" height="9" fill="var(--holder)"/><rect x="${10-w/2}" y="9" width="${w}" height="9" fill="var(--shank)"/><rect x="${10-w/2}" y="18" width="${w}" height="${t.cat=='ball'?9:11}" fill="var(--cutter)"/>${t.cat=='ball'?`<circle cx="10" cy="27" r="${w/2}" fill="var(--cutter)"/>`:''}</svg>`}
+function head(title,sub,back){return `<header>${back?`<button class="btn ghost" data-back>← List</button>`:''}<span class="title">${title}</span>${sub?`<span class="hint">${sub}</span>`:''}
+  <span class="mode"><span data-mode="tools" class="${S.mode=='tools'?'on':''}">Tools</span><span data-mode="holders" class="${S.mode=='holders'?'on':''}">Holders</span></span><span class="sp"></span><span class="x">✕</span></header>`}
+
+function browseTools(){
+  const list=TOOLS.filter(t=>t.src==S.src&&(S.cat=='all'||t.cat==S.cat)), count=c=>TOOLS.filter(t=>t.src==S.src&&(c=='all'||t.cat==c)).length;
+  return head('Tool library')+`<div class="body">
+   <div class="cats"><div class="seg">${[['doc','Document'],['lib','My library'],['cat','Catalog']].map(([k,l])=>`<span data-src="${k}" class="${S.src==k?'on':''}">${l}</span>`).join('')}</div>
+    ${CATS.map(c=>c.length==1?`<div class="h">${c[0]}</div>`:`<div class="cat ${S.cat==c[0]?'on':''}" data-cat="${c[0]}"><span>${c[1]}</span><small>${count(c[0])||''}</small></div>`).join('')}</div>
+   <div class="list"><div class="bar"><input placeholder="Filter by name, diameter or part number"><button class="btn pri" data-new>New tool…</button><button class="btn">Import…</button><button class="btn">Export…</button></div>
+    <div class="rows"><table><thead><tr><th></th><th class="num">T</th><th>Name</th><th>Type</th><th class="num">Ø mm</th><th class="num">Flute mm</th><th class="num">Flutes</th><th>Holder</th><th class="num">Gauge mm</th><th class="num">Recipes</th><th></th></tr></thead>
+    <tbody>${list.map(t=>`<tr data-tool="${t.id}"><td>${thumb(t)}</td><td class="num">${t.t||'–'}</td><td>${esc(t.name)}</td><td>${t.kind}</td><td class="num">${t.d}</td><td class="num">${t.fl}</td><td class="num">${t.flutes}</td><td>${H(t.h).name}</td><td class="num">${H(t.h).gl+t.so}</td><td class="num">${t.rec}</td><td>${t.src=='doc'?'<span class="pill doc">in document</span>':'<button class="btn" data-stop>Add to document</button>'}</td></tr>`).join('')||'<tr><td colspan="11" style="color:var(--faint);padding:18px">No tools in this category. The catalog is not filled in this mock-up.</td></tr>'}</tbody></table></div></div></div>
+  <footer><span class="hint">Click a row to edit the tool.</span><span class="sp"></span><button class="btn">Close</button></footer>`}
+
+function browseHolders(){
+  const tapers=['all',...new Set(HOLDERS.map(h=>h.taper))], list=HOLDERS.filter(h=>S.taper=='all'||h.taper==S.taper);
+  return head('Tool library')+`<div class="body">
+   <div class="cats"><div class="h">Spindle taper</div>${tapers.map(t=>`<div class="cat ${S.taper==t?'on':''}" data-taper="${t}"><span>${t=='all'?'All holders':t}</span><small>${HOLDERS.filter(h=>t=='all'||h.taper==t).length}</small></div>`).join('')}
+    <div class="h">Machine</div><div style="padding:3px 8px;color:var(--dim)">The mounted machine takes <b style="color:var(--text)">BT40</b>. Other tapers are shown dimmed in a tool's holder picker.</div></div>
+   <div class="list"><div class="bar"><input placeholder="Filter by name, taper or clamp"><button class="btn pri" data-newh>New holder…</button><button class="btn">Import…</button><button class="btn">Export…</button></div>
+    <div class="rows"><table><thead><tr><th>Name</th><th>Taper</th><th>Clamp</th><th class="num">Clamps Ø mm</th><th class="num">Gauge length mm</th><th class="num">Largest Ø mm</th><th class="num">Used by</th></tr></thead>
+    <tbody>${list.map(h=>`<tr data-holder="${h.id}"><td>${h.name}</td><td>${h.taper}</td><td>${h.clamp}</td><td class="num">${h.lo==h.hi?h.lo:h.lo+' – '+h.hi}</td><td class="num">${h.gl}</td><td class="num">${h.hd}</td><td class="num">${users(h).length} tools</td></tr>`).join('')}</tbody></table></div></div></div>
+  <footer><span class="hint">Click a row to edit the holder. A change updates each tool that uses it.</span><span class="sp"></span><button class="btn">Close</button></footer>`}
+
+function toolTab(t){const h=H(t.h), f=(l,k,u,x='')=>`<label>${l}</label><input data-f="${k}" value="${t[k]??''}" ${x}><span class="u">${u}</span>`;
+  const fits=t.sd>=h.lo&&t.sd<=h.hi;
+  return `<div class="grid">
+   <label>Name</label><input style="grid-column:2/-1" value="${esc(t.name)}">
+   <label>Type</label><select style="grid-column:2/-1"><option>${t.kind}</option><option>Flat end mill</option><option>Ball nose</option><option>Bull nose</option><option>Drill</option></select>
+   <label>Tool number</label><input value="${t.t||''}"><span class="u">T</span>
+   <div class="sec">Cutter</div>
+   ${f('Diameter','d','mm')}${f('Flute length','fl','mm')}${f('Corner radius','cr','mm',t.cat=='ball'?'disabled':'')}${t.tip?f(t.cat=='drill'?'Point angle':'Cone angle','tip','deg'):''}${f('Flutes','flutes','')}${f('Helix angle','helix','deg')}
+   <label>Tool material</label><select style="grid-column:2/-1"><option>Carbide</option><option>HSS</option></select>
+   <label class="full"><input type="checkbox" checked> Centre cutting (may plunge into solid)</label>
+   <div class="sec">Shank</div>
+   ${f('Shank diameter','sd','mm')}
+   <div class="sec">Assembly: how this tool sits in a holder</div>
+   <div class="asm">
+    <label>Holder</label><select data-hsel style="grid-column:2/-1">${HOLDERS.map(x=>`<option value="${x.id}" ${x.id==h.id?'selected':''}>${x.name}${x.taper!='BT40'?'  (not this machine)':''}</option>`).join('')}</select>
+    <label>Stick-out</label><input data-f="so" value="${t.so}"><span class="u">mm</span>
+    <label>Gauge length</label><span class="ro">${h.gl+t.so} mm</span><span></span>
+    <div class="full hint">= ${h.gl} mm of the holder + ${t.so} mm stick-out. <span class="link" data-openh="${h.id}">Open holder "${h.name}" →</span></div>
+    <div class="full" style="color:${fits?'var(--ok)':'var(--bad)'}">${fits?`✓ The shank Ø${t.sd} is in the clamping range ${h.lo} to ${h.hi} mm.`:`✕ The shank Ø${t.sd} is outside the clamping range ${h.lo} to ${h.hi} mm of this holder.`}</div>
+   </div></div>`}
+function detailTab(){return `<div class="grid"><div class="sec" style="margin-top:0">Catalog data</div>
+   <label>Vendor</label><input style="grid-column:2/-1"><label>Part number</label><input style="grid-column:2/-1"><label>Coating</label><input style="grid-column:2/-1">
+   <label>Notes</label><input style="grid-column:2/-1"><label>Material group</label><input style="grid-column:2/-1" value="aluminum"></div>`}
+function recTab(t){const fz=(r,f)=>(f/(r*t.flutes)).toFixed(3),vc=r=>Math.round(Math.PI*t.d*r/1000);
+  return `<p class="hint" style="margin:0 0 8px">One recipe for each work material. The star marks the material of this document (Aluminium 6061): operations take that row.</p>
+  <table class="rec"><thead><tr><th>Material</th><th class="num">rpm</th><th class="num">Feed</th><th class="num">Stepdown</th><th class="num">Stepover</th><th></th></tr></thead><tbody>
+  ${MATS.slice(0,Math.max(1,Math.min(3,t.rec))).map(m=>`<tr><td>${m[5]?'<span class="star">★</span> ':''}${m[0]}</td><td><input value="${m[1]}"></td><td><input value="${m[2]}"></td><td><input value="${m[3]}"></td><td><input value="${m[4]}"></td><td>✕</td></tr><tr><td colspan="6" class="calc">= ${vc(m[1])} m/min surface speed, ${fz(m[1],m[2])} mm per tooth</td></tr>`).join('')}</tbody></table>
+  <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap"><button class="btn">Add material…</button><button class="btn">Suggest feeds and speeds</button><button class="btn">Copy recipes from tool…</button></div>
+  <p class="hint">Units: feed mm/min, steps mm. Plasma and waterjet tools show their own recipe columns (thickness, pierce time, kerf).</p>`}
+function holderForm(h){const f=(l,k,u)=>`<label>${l}</label><input data-hf="${k}" value="${h[k]}"><span class="u">${u}</span>`;
+  return `<div class="grid"><label>Name</label><input style="grid-column:2/-1" value="${h.name}">
+   <div class="sec">Machine side</div><label>Spindle taper</label><select style="grid-column:2/-1"><option>${h.taper}</option><option>BT30</option><option>BT40</option><option>CAT40</option><option>Tormach TTS</option></select>
+   <div class="sec">Tool side</div><label>Clamp</label><select style="grid-column:2/-1"><option>${h.clamp}</option><option>ER collet</option><option>Weldon side lock</option><option>Shrink fit</option><option>Drill chuck</option></select>
+   ${f('Clamps from','lo','mm')}${f('Clamps to','hi','mm')}
+   <div class="sec">Shape</div>${f('Gauge length','gl','mm')}${f('Largest diameter','hd','mm')}${f('Nose diameter','nose','mm')}
+   <div class="full"><button class="btn">Edit outline…</button> <button class="btn">Import model (STEP)…</button></div>
+   <div class="sec">Used by ${users(h).length} tools</div><div class="full used">${users(h).map(t=>`<div><span class="link" data-tool="${t.id}">${t.t?'T'+t.t+' ':''}${esc(t.name)}</span> <span class="hint">stick-out ${t.so} mm, gauge ${h.gl+t.so} mm</span></div>`).join('')||'<span class="hint">No tool uses this holder.</span>'}</div></div>`}
+
+const DEFS=`<defs><marker id="a" viewBox="0 0 8 8" refX="4" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1 L7 4 L1 7" fill="none" stroke="var(--dimline)"/></marker></defs>`;
+function kit(W,H,total,wide){const sc=Math.min((H-90)/total,(W-250)/Math.max(wide,70)),cx=235,y0=H-46,y=mm=>y0-mm*sc,x=mm=>cx+mm*sc;
+  const dim=(xa,ya,xb,yb,label,side)=>{const v=xa==xb,tx=v?xa+(side||1)*6:(xa+xb)/2,ty=v?(ya+yb)/2+4:ya-5;return `<line x1="${xa}" y1="${ya}" x2="${xb}" y2="${yb}" stroke="var(--dimline)" marker-start="url(#a)" marker-end="url(#a)"/><text x="${tx}" y="${ty}" fill="var(--dimline)" font-size="11.5" text-anchor="${v?((side||1)>0?'start':'end'):'middle'}">${label}</text>`};
+  const ext=(xa,ya,xb,yb)=>`<line x1="${xa}" y1="${ya}" x2="${xb}" y2="${yb}" stroke="var(--dimline)" stroke-width=".5" opacity=".6"/>`;
+  return {sc,cx,y0,x,y,dim,ext}}
+function holderShape(k,h,base,dim){const r=h.hd/2,n=h.nose/2,{x,y}=k;return `<path d="M${x(-r)} ${y(base+h.gl)} H${x(r)} V${y(base+h.gl-8)} H${x(r*0.8)} V${y(base+18)} L${x(n)} ${y(base+6)} V${y(base)} H${x(-n)} V${y(base+6)} L${x(-r*0.8)} ${y(base+18)} V${y(base+h.gl-8)} H${x(-r)} Z" fill="var(--holder)" stroke="#2a2e35" opacity="${dim?.45:1}"/>`}
+function spindle(k,top){return `<rect x="${k.x(-44)}" y="${k.y(top+26)}" width="${88*k.sc}" height="${26*k.sc}" fill="none" stroke="var(--faint)" stroke-dasharray="4 3"/><text x="${k.x(46)+6}" y="${k.y(top+12)}" fill="var(--faint)" font-size="11">spindle nose</text>`}
+
+function drawTool(t){const h=H(t.h),W=520,Hh=470,total=t.so+h.gl+26,k=kit(W,Hh,total,h.hd),{x,y,dim,ext,cx,y0,sc}=k;
+  const tipH=t.cat=='drill'?(t.d/2)/Math.tan((t.tip||118)*Math.PI/360):t.cat=='chamfer'?t.d/2:0,r=t.d/2,top=y(t.fl),bot=y(tipH||(t.cat=='ball'?r:0));
+  let s=spindle(k,t.so+h.gl);
+  if(S.showHolder) s+=holderShape(k,h,t.so);
+  s+=`<rect x="${x(-t.sd/2)}" y="${y(t.so)}" width="${t.sd*sc}" height="${Math.max(0,(t.so-t.fl))*sc}" fill="var(--shank)"/><rect x="${x(-r)}" y="${top}" width="${t.d*sc}" height="${bot-top}" fill="var(--cutter)"/>`;
+  if(t.cat=='ball') s+=`<path d="M${x(-r)} ${bot} A${r*sc} ${r*sc} 0 0 0 ${x(r)} ${bot} Z" fill="var(--cutter)"/>`;
+  if(tipH) s+=`<path d="M${x(-r)} ${bot} L${cx} ${y(0)} L${x(r)} ${bot} Z" fill="var(--cutter)"/>`;
+  if(t.cr>0&&t.cat=='bull') s+=`<path d="M${x(-r)} ${y(0)} h${t.cr*sc} a${t.cr*sc} ${t.cr*sc} 0 0 1 ${-t.cr*sc} ${-t.cr*sc} Z M${x(r)} ${y(0)} h${-t.cr*sc} a${t.cr*sc} ${t.cr*sc} 0 0 0 ${t.cr*sc} ${-t.cr*sc} Z" fill="var(--well)"/>`;
+  if(S.flutes&&t.helix>0){const lead=Math.PI*t.d/Math.tan(t.helix*Math.PI/180),n=t.flutes;let p='';for(let i=-n;i<n*3;i++){const z=i*lead/n;p+=`M${x(-r)} ${y(z)} L${x(r)} ${y(z+lead/2)} `}
+    s+=`<clipPath id="cl"><rect x="${x(-r)}" y="${top}" width="${t.d*sc}" height="${bot-top}"/></clipPath><path d="${p}" stroke="#6e5a2c" stroke-width="1.6" clip-path="url(#cl)" fill="none"/>`}
+  s+=`<line x1="${cx}" y1="${y(total)-8}" x2="${cx}" y2="${y0+10}" stroke="var(--faint)" stroke-dasharray="10 4 2 4" stroke-width=".7"/>`;
+  if(S.dims){const xr=x(Math.max(h.hd/2,24))+26,xl=x(-Math.max(h.hd/2,24))-22;
+    s+=ext(x(r),y(0),xr+40,y(0))+ext(x(r),y(t.fl),xr+4,y(t.fl))+ext(x(h.nose/2),y(t.so),xr+44,y(t.so))+ext(x(-h.hd/2),y(t.so+h.gl),xl-4,y(t.so+h.gl))+ext(x(-r),y(0),xl-4,y(0));
+    s+=dim(xr,y(0),xr,y(t.fl),`flute ${t.fl}`)+dim(xr+40,y(0),xr+40,y(t.so),`stick-out ${t.so}`)+dim(xl,y(0),xl,y(t.so+h.gl),`gauge length ${t.so+h.gl}`,-1);
+    s+=dim(x(-r),y0+22,x(r),y0+22,`Ø${t.d}`)+ext(x(-r),y(0),x(-r),y0+26)+ext(x(r),y(0),x(r),y0+26);
+    s+=`<text x="${x(t.sd/2)+8}" y="${y((t.so+t.fl)/2)}" fill="var(--dimline)" font-size="11.5">shank Ø${t.sd}</text>`;
+    if(S.showHolder) s+=`<text x="${x(-h.hd/2)}" y="${y(t.so+h.gl)-8}" fill="var(--dim)" font-size="11.5">${h.name}</text>`}
+  return `<svg viewBox="0 0 ${W} ${Hh}" preserveAspectRatio="xMidYMid meet">${DEFS}${s}</svg>`}
+function drawHolder(h){const W=520,Hh=470,base=30,k=kit(W,Hh,base+h.gl+26,h.hd),{x,y,dim,ext,cx,y0,sc}=k;const sd=(h.lo+h.hi)/2;
+  let s=spindle(k,base+h.gl)+holderShape(k,h,base);
+  s+=`<rect x="${x(-sd/2)}" y="${y(base)}" width="${sd*sc}" height="${base*sc}" fill="none" stroke="var(--shank)" stroke-dasharray="5 3"/><text x="${x(sd/2)+8}" y="${y(base/2)}" fill="var(--dim)" font-size="11.5">shank Ø${h.lo==h.hi?h.lo:h.lo+' to '+h.hi}</text>`;
+  s+=`<line x1="${cx}" y1="${y(base+h.gl+26)-8}" x2="${cx}" y2="${y0+10}" stroke="var(--faint)" stroke-dasharray="10 4 2 4" stroke-width=".7"/>`;
+  if(S.dims){const xr=x(h.hd/2)+30,xl=x(-h.hd/2)-22;
+    s+=ext(x(h.nose/2),y(base),xr+4,y(base))+ext(x(h.hd/2),y(base+h.gl),xr+4,y(base+h.gl));
+    s+=dim(xr,y(base),xr,y(base+h.gl),`gauge length ${h.gl}`)+dim(x(-h.hd/2),y(base+h.gl)-10,x(h.hd/2),y(base+h.gl)-10,`Ø${h.hd}`)+dim(x(-h.nose/2),y(base)+16,x(h.nose/2),y(base)+16,`nose Ø${h.nose}`)}
+  return `<svg viewBox="0 0 ${W} ${Hh}" preserveAspectRatio="xMidYMid meet">${DEFS}${s}</svg>`}
+
+function editTool(){const t=S.tool;
+  const rail=`<div class="rail"><div class="g">Document</div>${TOOLS.filter(x=>x.src=='doc').map(x=>`<div class="t ${x.id==t.id?'on':''}" data-tool="${x.id}">T${x.t} ${esc(x.name)}</div>`).join('')}<div class="g">My library</div>${TOOLS.filter(x=>x.src!='doc').map(x=>`<div class="t ${x.id==t.id?'on':''}" data-tool="${x.id}">${esc(x.name)}</div>`).join('')}</div>`;
+  return head(esc(t.name),`${t.kind}${t.t?' · T'+t.t:''}`,true)+`<div class="body">${rail}
+   <div class="form"><div class="tabs">${[['tool','Tool'],['rec','Recipes'],['det','Details']].map(([k,l])=>`<span data-tab="${k}" class="${S.tab==k?'on':''}">${l}</span>`).join('')}</div><div class="pane">${S.tab=='tool'?toolTab(t):S.tab=='rec'?recTab(t):detailTab()}</div></div>
+   <div class="draw"><div class="opts"><label><input type="checkbox" data-opt="dims" ${S.dims?'checked':''}> Dimensions</label><label><input type="checkbox" data-opt="showHolder" ${S.showHolder?'checked':''}> Holder</label><label><input type="checkbox" data-opt="flutes" ${S.flutes?'checked':''}> Flutes</label><span style="margin-left:auto">to scale · mm</span></div>${drawTool(t)}</div></div>
+  <footer><span class="hint">Apply is one undo step.</span><span class="sp"></span><button class="btn">Duplicate</button><button class="btn" data-back>Cancel</button><button class="btn pri" data-back>Apply</button></footer>`}
+function editHolder(){const h=S.holder;
+  const rail=`<div class="rail">${[...new Set(HOLDERS.map(x=>x.taper))].map(tp=>`<div class="g">${tp}</div>`+HOLDERS.filter(x=>x.taper==tp).map(x=>`<div class="t ${x.id==h.id?'on':''}" data-holder="${x.id}">${x.name.replace(tp+' ','')}</div>`).join('')).join('')}</div>`;
+  return head(h.name,`holder · used by ${users(h).length} tools`,true)+`<div class="body">${rail}<div class="form"><div class="pane">${holderForm(h)}</div></div>
+   <div class="draw"><div class="opts"><label><input type="checkbox" data-opt="dims" ${S.dims?'checked':''}> Dimensions</label><span style="margin-left:auto">to scale · mm</span></div>${drawHolder(h)}</div></div>
+  <footer><span class="hint">Apply updates ${users(h).length} tools. It is one undo step.</span><span class="sp"></span><button class="btn">Duplicate</button><button class="btn" data-back>Cancel</button><button class="btn pri" data-back>Apply</button></footer>`}
+
+function render(){$('#dlg').innerHTML=S.screen=='browse'?(S.mode=='tools'?browseTools():browseHolders()):(S.mode=='tools'?editTool():editHolder())}
+document.addEventListener('click',e=>{
+  const el=e.target.closest('[data-mode],[data-src],[data-cat],[data-taper],[data-tool],[data-holder],[data-openh],[data-tab],[data-back],[data-new],[data-newh],[data-stop]'); if(!el) return; const d=el.dataset;
+  if(d.stop!==undefined){e.stopPropagation();return}
+  if(d.mode){S.mode=d.mode;S.screen='browse'}
+  else if(d.src){S.src=d.src;S.cat='all'} else if(d.cat) S.cat=d.cat; else if(d.taper) S.taper=d.taper;
+  else if(d.tool){S.tool=TOOLS.find(t=>t.id==d.tool);S.mode='tools';S.screen='edit'}
+  else if(d.holder||d.openh){S.holder=H(d.holder||d.openh);S.mode='holders';S.screen='edit'}
+  else if(d.tab) S.tab=d.tab; else if(d.back!==undefined) S.screen='browse';
+  else if(d.new!==undefined){S.tool={...TOOLS[0],id:99,name:'New tool',t:0};S.screen='edit';S.tab='tool'}
+  else if(d.newh!==undefined){S.holder={...HOLDERS[0],id:'hn',name:'New holder'};S.screen='edit'}
+  render()});
+document.addEventListener('change',e=>{const d=e.target.dataset,v=parseFloat(e.target.value);
+  if(d.opt){S[d.opt]=e.target.checked;render()}
+  else if(d.hsel!==undefined){S.tool.h=e.target.value;render()}
+  else if(d.f&&v>=0){S.tool[d.f]=v;if(S.tool.cat=='ball')S.tool.cr=S.tool.d/2;render()}
+  else if(d.hf&&v>=0){S.holder[d.hf]=v;render()}});
+// state from the URL hash, for direct links and screenshots: #mode=holders&screen=edit&tab=rec&shot=1
+new URLSearchParams(location.hash.slice(1)).forEach((v,k)=>{ if(k=='tool') S.tool=TOOLS.find(t=>t.id==v)||S.tool; else if(k=='holder') S.holder=H(v)||S.holder; else if(k=='shot') document.body.classList.add('shot'); else if(k in S) S[k]=v; });
+render();
+</script>
+</body>
+</html>
