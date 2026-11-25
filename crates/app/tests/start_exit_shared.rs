@@ -6,6 +6,8 @@
 //!
 //! Gate map (#3324): covers app::operation (kinds pick capability,
 //! path_picks accessor, sane), app::mcp (tools schema, job kind list).
+//! #3330: app::operation (generate, the 5-Axis Contour arm) and
+//! motion::finishing3d (ring_seam) through the application.
 //! Gate map (#3331): covers app::operation (generate: the Facing, Profile
 //! Rough and Profile Finish picks), app::commands (EditOperationParams).
 //! #3327 (`adaptive`): covers app::operation (adaptive_pick_op, generate
@@ -16,6 +18,10 @@
 mod common;
 #[path = "start_exit_shared/adaptive.rs"]
 mod adaptive;
+
+// #3328: the hole order of Drill, Bore and Thread under the picks.
+#[path = "start_exit_shared/hole_order.rs"]
+mod hole_order;
 
 use camcraft_app::mcp::Server;
 use camcraft_app::geo2d::Point2;
@@ -68,7 +74,11 @@ fn every_kind_has_one_pick_capability_and_only_the_taken_ones_take_a_pick() {
         let cap = k.pick();
         match k.ty {
             OpType::Contour => assert_eq!(cap, PickCapability::Ring, "the contour takes a ring pick"),
+            // #3330: the 5-axis contour seats its waterline rings at the pick.
+            OpType::Contour5D => assert_eq!(cap, PickCapability::Ring, "the 5-axis contour takes a ring pick"),
             OpType::WireContour => assert_eq!(cap, PickCapability::Threading, "the wire takes its threading point"),
+            // #3328: the first hole and the last hole of the list.
+            OpType::Drill | OpType::Bore | OpType::Thread => assert_eq!(cap, PickCapability::HoleOrder, "{}: a hole order pick", k.label),
             // #3331 slice 1: a point in the lathe (Z, X) plane.
             OpType::Facing | OpType::ProfileRough | OpType::ProfileFinish => {
                 assert_eq!(cap, PickCapability::Meridian, "{} takes a lathe-plane pick", k.label)
@@ -158,3 +168,7 @@ fn the_mcp_doors_name_the_pick_fields_and_the_kinds_that_take_them() {
     let text = kinds.to_string();
     assert!(text.contains("start_exit"), "each kind says if it takes a pick: {text:.400}");
 }
+
+// #3330: the 5-Axis Contour takes a start and an exit pick.
+#[path = "start_exit_shared/contour5d.rs"]
+mod contour5d;
