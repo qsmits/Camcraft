@@ -48,6 +48,9 @@ pub enum PickCapability {
 pub const PICK_OWED: &str =
     "the planner chooses the entry and the exit of this kind until its slice of #1448 ships";
 
+/// The reason of a drill's cross holes and of a lathe's axial hole (#3328).
+pub const PICK_TURRET: &str = "a pick orders the Z holes of a mill, and the turret's holes keep the list order";
+
 /// The reason of lathe Threading (#3331): its own law places the start.
 pub const PICK_THREAD_LAW: &str = "the thread start law sets the start and the exit of a thread";
 
@@ -79,6 +82,8 @@ impl KindInfo {
             OpType::Contour | OpType::Contour5D | OpType::MultiAxisContour => PickCapability::Ring,
             OpType::WireContour => PickCapability::Threading,
             OpType::Probe => PickCapability::NotTaken(PICK_NO_PATH),
+            // #3328: the first hole and the last hole of the list.
+            OpType::Thread | OpType::Drill | OpType::Bore => PickCapability::HoleOrder,
             // #3331 slice 1: the pick is a point in the lathe (Z, X) plane.
             OpType::Facing | OpType::ProfileRough | OpType::ProfileFinish => PickCapability::Meridian,
             OpType::Threading => PickCapability::NotTaken(PICK_THREAD_LAW),
@@ -92,9 +97,6 @@ impl KindInfo {
             | OpType::Engrave
             | OpType::Chamfer2D
             | OpType::Circular
-            | OpType::Thread
-            | OpType::Drill
-            | OpType::Bore
             | OpType::Pocket3D
             | OpType::Finish3D
             | OpType::Deburr
@@ -284,6 +286,10 @@ impl OpParams {
                 };
                 return Some(format!("{}: a {what} point is not taken - {why}; clear it on this operation", info.label));
             }
+            // #3328: the turret's radial holes have no XY order to pick.
+            if matches!(self, OpParams::Drill { cross, .. } if !cross.is_empty()) {
+                return Some(format!("{}: a {what} point is not taken on cross holes - {PICK_TURRET}; clear it on this operation", info.label));
+            }
             // #3331: a turning pick is a point of the lathe (Z, X) plane.
             if cap == PickCapability::Meridian && picks.of(role).iter().any(|p| p.z.is_none()) {
                 return Some(format!(
@@ -294,8 +300,34 @@ impl OpParams {
         }
         match self {
             OpParams::WireContour(w) => wire_exit_refusal(w),
-            _ => None,
+            _ => self.hole_order().err(),
         }
+    }
+
+    /// The cut order of this operation's hole list under its picks
+    /// (#3328), as indices into the list: `None` for a kind that has no
+    /// hole order, or with no pick (the list order). The refusal names
+    /// the kind: a pick that is on no hole, or both picks on one hole.
+    fn hole_order(&self) -> Result<Option<Vec<usize>>, String> {
+        let (OpParams::Drill { holes, picks, .. } | OpParams::Bore { holes, picks, .. } | OpParams::Thread { holes, picks, .. }) = self else {
+            return Ok(None);
+        };
+        if picks.is_empty() {
+            return Ok(None);
+        }
+        let circles: Vec<_> = holes.iter().map(|h| (h.xy, h.radius)).collect();
+        crate::drilling::hole_order(&circles, picks).map(Some).map_err(|why| format!("{}: {why}", self.kind().info().label))
+    }
+
+    /// `items` (one for each hole of the list, in the list order) in the
+    /// cut order that the picks give (#3328). No pick returns the list
+    /// order unchanged. This is the generator's second check of the
+    /// door's refusals, for a project file or a caller that skipped it.
+    pub(super) fn holes_in_pick_order<T: Clone>(&self, items: &[T]) -> Result<Vec<T>, String> {
+        Ok(match self.hole_order()? {
+            Some(order) => crate::drilling::in_order(items, &order),
+            None => items.to_vec(),
+        })
     }
 }
 

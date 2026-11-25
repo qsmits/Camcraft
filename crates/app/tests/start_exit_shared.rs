@@ -13,6 +13,11 @@
 //! Gate map (#3331): covers app::operation (generate: the Facing, Profile
 //! Rough and Profile Finish picks), app::commands (EditOperationParams).
 
+mod common;
+// #3328: the hole order of Drill, Bore and Thread under the picks.
+#[path = "start_exit_shared/hole_order.rs"]
+mod hole_order;
+
 use camcraft_app::mcp::Server;
 use camcraft_app::geo2d::Point2;
 use camcraft_app::operation::{Carried, Height, HeightReference, KindInfo, OpParams, OpType, PickCapability};
@@ -69,6 +74,8 @@ fn every_kind_has_one_pick_capability_and_only_the_taken_ones_take_a_pick() {
             // #3330: the multi-axis contour re-sequences its nearest drive curve.
             OpType::MultiAxisContour => assert_eq!(cap, PickCapability::Ring, "the multi-axis contour takes a curve pick"),
             OpType::WireContour => assert_eq!(cap, PickCapability::Threading, "the wire takes its threading point"),
+            // #3328: the first hole and the last hole of the list.
+            OpType::Drill | OpType::Bore | OpType::Thread => assert_eq!(cap, PickCapability::HoleOrder, "{}: a hole order pick", k.label),
             // #3331 slice 1: a point in the lathe (Z, X) plane.
             OpType::Facing | OpType::ProfileRough | OpType::ProfileFinish => {
                 assert_eq!(cap, PickCapability::Meridian, "{} takes a lathe-plane pick", k.label)

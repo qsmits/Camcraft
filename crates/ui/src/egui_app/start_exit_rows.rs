@@ -15,7 +15,7 @@
 use egui::{Align, Label, Layout, Margin, RichText, Ui};
 
 use camcraft_app::geo2d::Point2;
-use camcraft_app::operation::{OpType, PickCapability};
+use camcraft_app::operation::{OpParams, OpType, PickCapability};
 use camcraft_app::path_picks::{PathPick, PathPicks, PickRole};
 use camcraft_app::units::Unit;
 
@@ -121,6 +121,67 @@ pub(super) fn wire_start_group(ui: &mut Ui, u: Unit, picks: &mut PathPicks) {
             }
             (true, None) => picks.start.push(PathPick::xy(Point2::new(0.0, 0.0))),
             (false, _) => picks.start.clear(),
+        }
+    });
+}
+
+struct HoleRows {
+    title: &'static str,
+    stated: &'static str,
+    x: &'static str,
+    y: &'static str,
+    says: &'static str,
+}
+
+const FIRST_HOLE: HoleRows = HoleRows {
+    title: START_GROUP,
+    stated: "First hole stated",
+    x: "First hole X",
+    y: "First hole Y",
+    says: "the hole under this point is cut first; the other holes keep the list order from there. A point that is on no hole is refused by name",
+};
+
+const LAST_HOLE: HoleRows = HoleRows {
+    title: EXIT_GROUP,
+    stated: "Last hole stated",
+    x: "Last hole X",
+    y: "Last hole Y",
+    says: "the hole under this point is cut last. A point that is on no hole is refused by name",
+};
+
+/// #3328: the first hole and the last hole of a Drill, a Bore or a Thread
+/// (`PickCapability::HoleOrder`), typed in model X and Y. Switching a
+/// group on seeds the first (or the last) hole of the list, so the seed
+/// is a point that the generator takes. Other kinds draw nothing here.
+pub(super) fn hole_order_groups(ui: &mut Ui, u: Unit, params: &mut OpParams) {
+    if params.kind().info().pick() != PickCapability::HoleOrder {
+        return;
+    }
+    let (first, last) = match params {
+        OpParams::Drill { holes, .. } | OpParams::Bore { holes, .. } | OpParams::Thread { holes, .. } => {
+            (holes.first().map(|h| h.xy), holes.last().map(|h| h.xy))
+        }
+        _ => (None, None),
+    };
+    let Some(picks) = params.path_picks_mut() else {
+        return;
+    };
+    hole_group(ui, u, &FIRST_HOLE, first, &mut picks.start);
+    hole_group(ui, u, &LAST_HOLE, last, &mut picks.exit);
+}
+
+fn hole_group(ui: &mut Ui, u: Unit, rows: &HoleRows, seed: Option<Point2>, list: &mut Vec<PathPick>) {
+    group(ui, rows.title, None, |ui| {
+        let mut stated = !list.is_empty();
+        check_row(ui, rows.stated, &mut stated);
+        match (stated, list.first_mut()) {
+            (true, Some(p)) => {
+                prop_row(ui, rows.x, |ui| num(ui, u, &mut p.xy.x));
+                prop_row(ui, rows.y, |ui| num(ui, u, &mut p.xy.y));
+                consequence(ui, rows.says);
+            }
+            (true, None) => list.push(PathPick::xy(seed.unwrap_or(Point2::new(0.0, 0.0)))),
+            (false, _) => list.clear(),
         }
     });
 }

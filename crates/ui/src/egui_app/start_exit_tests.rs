@@ -201,6 +201,49 @@ fn kinds_without_a_picked_start_say_so_by_name() {
     }
 }
 
+/// #3328: Drill, Bore and Thread take the first hole and the last hole.
+/// Each page draws both groups off, with no "Not taken" line. Switching
+/// a group on seeds a hole of the list in the draft; Apply commits the
+/// draft as every parameter edit (pinned for the contour above).
+#[test]
+fn the_hole_kinds_type_their_first_and_last_hole() {
+    use camcraft_app::drilling::Hole;
+    let at = |x: f64| Hole { xy: Point2 { x, y: 5.0 }, radius: 2.0, entry_z: 0.0, floor_z: -5.0, through: false, stepped: false };
+    for label in ["Drill", "Bore", "Thread"] {
+        let mut params = crate::operations::retype(&face(), kind(label));
+        if let OpParams::Drill { holes, .. } | OpParams::Bore { holes, .. } | OpParams::Thread { holes, .. } = &mut params {
+            *holes = vec![at(-10.0), at(0.0), at(10.0)];
+        }
+        let ty = params.kind();
+        // The fixture holds an end mill only, so the kind rides the draft.
+        let mut state = opened(face());
+        state.op_ui.params = params;
+        state.op_tab = if super::super::op_tabs::has_section(ty, SEC_LEADS) { SEC_LEADS } else { super::super::op_tabs::SEC_GEO };
+        let mut harness = page(state);
+        harness.run();
+        for g in [START_GROUP, EXIT_GROUP] {
+            assert!(harness.query_by_label(g).is_some(), "{label} has the {g} group");
+        }
+        assert_eq!(harness.query_all_by_label_contains(super::NOT_TAKEN).count(), 0, "{label} takes both picks");
+        for r in ["First hole X", "First hole Y", "Last hole X", "Last hole Y"] {
+            assert!(harness.query_by_label(r).is_none(), "{label}: {r} hides while its group is off");
+        }
+        assert_eq!(draft(&harness), (None, None), "{label}: drawing the tab writes no point");
+
+        on_row(&harness, "First hole stated", Role::CheckBox).click();
+        harness.run();
+        on_row(&harness, "Last hole stated", Role::CheckBox).click();
+        harness.run();
+        let (start, exit) = draft(&harness);
+        assert!(same(start, -10.0, 5.0), "{label}: the start seeds the first hole of the list: {start:?}");
+        assert!(same(exit, 10.0, 5.0), "{label}: the exit seeds the last hole of the list: {exit:?}");
+        for r in ["First hole X", "First hole Y", "Last hole X", "Last hole Y"] {
+            assert!(harness.query_by_label(r).is_some(), "{label}: {r} shows while its group is on");
+        }
+        assert!(harness.query_all_by_label_contains("is refused by name").count() >= 2, "{label}: each group says the law");
+    }
+}
+
 #[test]
 fn the_wire_geometry_tab_shows_the_start_hole_and_an_editable_exit() {
     let mut state = opened(face());
