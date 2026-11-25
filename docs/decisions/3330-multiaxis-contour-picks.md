@@ -63,3 +63,28 @@ pose and shank laws.
 **Cost to change later.** Small: the law is in `curve_seam.rs`, with
 one hook in `contour_curve_seamed` for the re-sequence and one for the
 columns. A per-curve list of picks needs only `apply` and the pins.
+
+### Review fix (#4050): the columns of a changed curve, swept exactly
+
+**Chosen.**
+- The walk checks the plunge column and the retract column at both ends
+  of each curve that a pick changed. A start pick that reverses an open
+  curve also moves its exit, and an exit pick that reverses it also
+  moves its start. The refusal names the pick of the column's own role,
+  else the other pick. A curve with no pick has no column check, as
+  before.
+- The ball's column is the exact distance from the vertical segment to
+  each facet (`stock_sim::dist_seg_tri`, the law that the 5-Axis
+  Contour columns already use). No sample step, so no thin ledge can
+  stand between two samples for any ball size. A keep of zero or less
+  (a ball smaller than the band) is refused.
+- The shank column test reaches up from its band floor, and that floor
+  rises with the ball. Thus the lowest pose answers for the whole rise,
+  and the shank is checked at that pose only.
+
+**Dropped.**
+- A finer fixed sample step: it moves the gap to smaller balls and
+  thinner ledges, and it costs more than the exact test.
+- A sample step derived from the ball radius with an inflated limit:
+  the inflation is larger than the band, so it refuses the cut station
+  itself.

@@ -662,12 +662,14 @@ pub fn contour_curve_seamed(
         // which the post holds modally anyway - so the ball rises off
         // its last contact along the axis it cut with, never swinging
         // upright through the surface it just left.
-        // #3330: the column at a picked start and at a picked exit.
-        for (pick, role, st) in [(seated[ci].start, PickRole::Start, stations.first()), (seated[ci].exit, PickRole::Exit, stations.last())] {
-            if let (Some(pk), Some(&(cl, pose))) = (pick, st)
+        // #3330: the plunge and the retract column at both ends of a
+        // curve that a pick changed (a reversal moves both ends).
+        for (col, role, pk) in seated[ci].columns() {
+            let st = if col == PickRole::Start { stations.first() } else { stations.last() };
+            if let Some(&(cl, pose)) = st
                 && !column_clear(cl, pose, hop_z, r, band, facets, &boxes, shank)
             {
-                return Err(built(column_refusal(role, &pk, ci, cl), &builder));
+                return Err(built(column_refusal(col, role, &pk, ci, cl), &builder));
             }
         }
         let Some(&(cl0, _)) = stations.first() else { continue };

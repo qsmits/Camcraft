@@ -227,6 +227,59 @@ fn curve_picked_columns_under_a_canopy_are_refused_by_name() {
     );
 }
 
+/// The box with a canopy slab from `lo` to `hi`.
+fn canopied(lo: Point3, hi: Point3) -> Vec<Triangle> {
+    let mut f = box_part();
+    f.extend(cube(lo, hi).facets.iter().copied());
+    f
+}
+
+/// The open curve on the box's y = 0 wall at mid height.
+fn wall_line() -> Vec<Point3> {
+    vec![p3(5.0, 0.0, 7.5), p3(35.0, 0.0, 7.5)]
+}
+
+#[test]
+fn curve_a_pick_that_reverses_an_open_curve_checks_both_columns() {
+    // Start pick only, at the x = 35 end: the run reverses and now
+    // leaves at x = 5, under the canopy. The retract column there is
+    // judged, and the refusal names the pick that moved it.
+    let facets = canopied(p3(2.0, -8.0, 18.0), p3(8.0, -1.0, 20.0));
+    let e = run(&[wall_line()], &facets, pick(36.0, -1.0), None).err().map(|e| format!("{e}"));
+    assert!(
+        e.as_deref().is_some_and(|m| m.contains("start point (36.000, -1.000): the retract column over drive curve 1 at (")),
+        "the start pick reverses the run and retracts through the canopy at x = 5: {e:?}"
+    );
+    // Exit pick only, at the x = 5 end: the run reverses and now
+    // plunges at x = 35, under a canopy there.
+    let facets = canopied(p3(32.0, -8.0, 18.0), p3(38.0, -1.0, 20.0));
+    let e = run(&[wall_line()], &facets, None, pick(4.0, -1.0)).err().map(|e| format!("{e}"));
+    assert!(
+        e.as_deref().is_some_and(|m| m.contains("exit point (4.000, -1.000): the plunge column over drive curve 1 at (")),
+        "the exit pick reverses the run and plunges through the canopy at x = 35: {e:?}"
+    );
+    // With open air over both ends, the reversed runs still cut.
+    let facets = box_part();
+    assert!(run(&[wall_line()], &facets, pick(36.0, -1.0), None).is_ok(), "a start-reversed run with open air cuts");
+    assert!(run(&[wall_line()], &facets, None, pick(4.0, -1.0)).is_ok(), "an exit-reversed run with open air cuts");
+}
+
+#[test]
+fn curve_a_small_ball_cannot_pass_a_thin_canopy_between_samples() {
+    // A 0.1 mm ball and a 0.01 mm canopy between the 0.25 mm samples
+    // at z = 18.0 and 18.25: the continuous sweep of the retract
+    // column finds it.
+    let facets = canopied(p3(15.0, -0.1, 18.12), p3(25.0, -0.001, 18.13));
+    let p = CurveParams { tool_diameter: 0.1, ..cp() };
+    let e = contour_curve_seamed(&[ring()], &facets, &p, &AxisControl::default(), None, &CurveSeam { start: None, exit: pick(20.0, -0.001) })
+        .err()
+        .map(|e| format!("{e}"));
+    assert!(
+        e.as_deref().is_some_and(|m| m.contains("exit point (20.000, -0.001): the retract column over drive curve 1 at (")),
+        "a 0.1 mm ball retracts through the canopy at z = 18.12 .. 18.13: {e:?}"
+    );
+}
+
 #[test]
 fn curve_without_a_pick_is_the_automatic_path_byte_for_byte() {
     let facets = box_part();

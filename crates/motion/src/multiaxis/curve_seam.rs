@@ -18,19 +18,22 @@
 //! name, never moved: a pick farther than 1.5 tool diameters from every
 //! drive curve, an open curve's end farther than that from its pick,
 //! a start and an exit at the same end, and a plunge or retract column
-//! at a picked point that crosses the part ([`column_clear`]).
+//! that crosses the part ([`column_clear`]) at either end of a curve
+//! that a pick changed - a pick that reverses an open curve moves its
+//! other end too ([`Seated::columns`]).
 //!
 //! Provenance: first principles - the closest point on a segment
 //! (orthogonal projection clamped to the segment), the rotation of a
-//! closed polyline's vertex list, and a swept-sphere clearance test
-//! sampled along a vertical line; the seam position is the common
+//! closed polyline's vertex list, and the exact segment-to-triangle
+//! distance (Ericson, "Real-Time Collision Detection" 5.1) for the
+//! sphere swept along a vertical line; the seam position is the common
 //! contour-entry vocabulary of published CAM practice. No vendor
 //! material consulted.
 
-use crate::finishing3d::closest_pt_tri;
 use crate::geometry::{Point3, Triangle};
 use crate::machining2d::GenError;
 use crate::path_picks::{PathPick, PathPicks, PickRole};
+use crate::stock_sim::dist_seg_tri;
 
 use super::avoid::{shank_hits_at, Shank};
 
@@ -65,6 +68,27 @@ impl CurveSeam {
 pub(super) struct Seated {
     pub start: Option<PathPick>,
     pub exit: Option<PathPick>,
+}
+
+impl Seated {
+    /// The columns the walk judges on this chain, as `(column, role,
+    /// pick)`: the plunge (`Start`) and the retract (`Exit`) column at
+    /// BOTH ends of a chain that took either pick, each named by the
+    /// pick of its own role, else by the other pick. A start pick that
+    /// reverses an open curve also moves its exit, and an exit pick
+    /// that reverses it also moves its start (#4050 review); a chain
+    /// with no pick yields nothing, so the automatic path is unchanged.
+    pub(super) fn columns(&self) -> impl Iterator<Item = (PickRole, PickRole, PathPick)> {
+        let by = |own: Option<PathPick>, own_role: PickRole, other: Option<PathPick>, other_role: PickRole| {
+            own.map(|p| (own_role, p)).or(other.map(|p| (other_role, p)))
+        };
+        [
+            (PickRole::Start, by(self.start, PickRole::Start, self.exit, PickRole::Exit)),
+            (PickRole::Exit, by(self.exit, PickRole::Exit, self.start, PickRole::Start)),
+        ]
+        .into_iter()
+        .filter_map(|(col, named)| named.map(|(role, p)| (col, role, p)))
+    }
 }
 
 /// The farthest a pick may sit from its drive curve (and from the end
@@ -262,11 +286,15 @@ fn run_on(pts: &mut Vec<Point3>, ring: &mut bool, i: usize, t: f64, f: Point3, s
 }
 
 /// Is the vertical column over ball centre `cl` (posed `pose`, the tip
-/// rising to `hop_z`) clear of the part? The ball is swept up the line
-/// in steps of at most [`COLUMN_STEP`] and must keep `r - band` from
-/// every facet; with a `shank`, the shank must touch nothing at any
-/// step either. The plunge descends this column at a picked start,
-/// and the retract rises it at a picked exit.
+/// rising to `hop_z`) clear of the part? The ball swept up the whole
+/// line must keep `r - band` from every facet: the exact distance from
+/// the segment to each facet ([`dist_seg_tri`]), so no ledge can stand
+/// between two samples, however small the ball (#4050 review). With a
+/// `shank`, the shank must touch nothing either: its test is a column
+/// that reaches up from the band floor, and that floor only rises with
+/// the ball, so the lowest pose answers for the whole rise. A keep of
+/// zero or less cannot be judged and is refused. The plunge descends
+/// this column, and the retract rises it.
 #[allow(clippy::too_many_arguments)] // the flat geometry a column question needs
 pub(super) fn column_clear(
     cl: Point3,
@@ -283,36 +311,28 @@ pub(super) fn column_clear(
     if !(rise.is_finite() && rise > 0.0) {
         return true;
     }
-    let n = ((rise / COLUMN_STEP).ceil() as usize).clamp(1, 1 << 16);
     let keep = r - band;
-    for k in 0..=n {
-        let c = Point3::new(cl.x, cl.y, cl.z + rise * k as f64 / n as f64);
-        for (f, b) in facets.iter().zip(boxes) {
-            let (dx, dy, dz) = ((b[0] - c.x).max(c.x - b[3]).max(0.0), (b[1] - c.y).max(c.y - b[4]).max(0.0), (b[2] - c.z).max(c.z - b[5]).max(0.0));
-            if dx * dx + dy * dy + dz * dz >= keep * keep {
-                continue;
-            }
-            let e = c - closest_pt_tri(c, &[f.a, f.b, f.c]);
-            if e.dot(e) < keep * keep {
-                return false;
-            }
+    if !(keep.is_finite() && keep > 0.0) {
+        return false;
+    }
+    let hi = Point3::new(cl.x, cl.y, top);
+    for (f, b) in facets.iter().zip(boxes) {
+        let (dx, dy) = ((b[0] - cl.x).max(cl.x - b[3]).max(0.0), (b[1] - cl.y).max(cl.y - b[4]).max(0.0));
+        let dz = (b[2] - top).max(cl.z - b[5]).max(0.0);
+        if dx * dx + dy * dy + dz * dz >= keep * keep {
+            continue;
         }
-        if let Some(s) = shank
-            && shank_hits_at(c, pose, r, s, facets, boxes)
-        {
+        if !(dist_seg_tri(cl, hi, f) >= keep) {
             return false;
         }
     }
-    true
+    !shank.is_some_and(|s| shank_hits_at(cl, pose, r, s, facets, boxes))
 }
 
-/// The column law's sample step, mm: far finer than any ledge a ball
-/// of a usable size can pass between two samples.
-const COLUMN_STEP: f64 = 0.25;
-
-/// The by-name refusal of a blocked column at a picked point.
-pub(super) fn column_refusal(role: PickRole, p: &PathPick, ci: usize, cl: Point3) -> GenError {
-    let (what, verb) = if role == PickRole::Start { ("plunge", "descend") } else { ("retract", "leave") };
+/// The by-name refusal of a blocked `column` (`Start` the plunge,
+/// `Exit` the retract) on a curve that the `role` pick `p` changed.
+pub(super) fn column_refusal(column: PickRole, role: PickRole, p: &PathPick, ci: usize, cl: Point3) -> GenError {
+    let (what, verb) = if column == PickRole::Start { ("plunge", "descend") } else { ("retract", "leave") };
     GenError::Invalid(format!(
         "{}: the {what} column over drive curve {} at ({:.3}, {:.3}, {:.3}) crosses the part - the \
          tool cannot {verb} there; pick a point with open air above it, or clear the {} point",
