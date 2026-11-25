@@ -150,3 +150,13 @@ fn a_point_the_plan_cannot_hold_is_refused_by_name() {
     let why = pocket(&area(), &p).map(|_| ()).expect_err("a start point with a ramp entry");
     assert!(why.to_string().contains("Helix or Plunge"), "{why}");
 }
+
+#[test]
+fn an_exit_at_the_start_piece_is_refused_by_name() {
+    // Two pieces: the start's piece is cut first, so an exit point there
+    // would end the cut before the other piece is cut.
+    let two = region(vec![rect(0.0, 0.0, 60.0, 40.0), rect(80.0, 0.0, 140.0, 40.0)]);
+    let p = params(Some(Point2::new(15.0, 12.0)), Some(Point2::new(59.0, 20.0)));
+    let why = pocket(&two, &p).map(|_| ()).expect_err("an exit at the start's piece").to_string();
+    assert!(why.contains("exit point") && why.contains("where the cut starts"), "{why}");
+}

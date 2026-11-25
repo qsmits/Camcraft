@@ -224,7 +224,11 @@ fn point_group(ui: &mut Ui, u: Unit, rows: &PointRows, p: &mut Option<Point2>) {
                     hint(ui, rows.help);
                     prop_row(ui, rows.y, |ui| num(ui, u, &mut q.y));
                     hint(ui, rows.help);
-                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                    // One row high: a bare right-to-left layout takes the
+                    // whole height left in the scroll area and pushes the
+                    // consequence line below the fold.
+                    let row = egui::vec2(ui.available_width(), ui.spacing().interact_size.y);
+                    ui.allocate_ui_with_layout(row, Layout::right_to_left(Align::Center), |ui| {
                         if ui.small_button(rows.clear).on_hover_text(rows.clear_help).clicked() {
                             cleared = true;
                         }

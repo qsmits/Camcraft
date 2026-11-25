@@ -202,3 +202,18 @@ fn a_spiral_adaptive_with_a_pass_start_keeps_the_full_tool_clear_of_a_protected_
 fn spiral() -> PocketParams {
     params_at(0.4)
 }
+
+#[test]
+fn a_start_or_exit_point_in_the_keepout_is_refused_by_name() {
+    // #3327: a picked point inside the "Do not touch" keep-out is refused
+    // with the item named; the point is never moved.
+    let (region, spec) = channel_and_pin();
+    let q = Some(Point2::new(30.0, 8.0));
+    for (start, exit, what) in [(q, None, "start point"), (None, q, "exit point")] {
+        let mut p = spiral();
+        p.links.approach.start_point = start;
+        p.links.approach.exit_point = exit;
+        let msg = adaptive_spiral_avoid(&region, &p, &spec, &CornerRelief::default()).expect_err("in the keep-out").to_string();
+        assert!(msg.contains(what) && msg.contains("Do not touch") && msg.contains("east pin"), "{msg}");
+    }
+}
