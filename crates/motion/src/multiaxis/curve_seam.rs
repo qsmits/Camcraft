@@ -322,7 +322,9 @@ pub(super) fn column_clear(
         if dx * dx + dy * dy + dz * dz >= keep * keep {
             continue;
         }
-        if !(dist_seg_tri(cl, hi, f) >= keep) {
+        // A distance that is not a number is no proof of air.
+        let d = dist_seg_tri(cl, hi, f);
+        if d.is_nan() || d < keep {
             return false;
         }
     }
