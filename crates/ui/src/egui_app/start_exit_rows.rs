@@ -99,8 +99,8 @@ const ADAPTIVE_START: PointRows = PointRows {
 
 const ADAPTIVE_EXIT: PointRows = PointRows {
     pick_help: "click a face, edge or corner in the viewport to place the 2D Adaptive exit point",
-    help: "a point in model X and Y near a wall: the last pass of each level runs on along its closing lap to the lap point nearest this point",
-    says: "the tool leaves the cut there; a point far from the closing lap is refused by name - the exit never moves",
+    help: "a point in model X and Y near a wall: at the end of each level the tool runs back along its last pass to the point nearest this point",
+    says: "the tool leaves the cut there; a point far from the last pass is refused by name - the exit never moves",
     ..EXIT
 };
 
