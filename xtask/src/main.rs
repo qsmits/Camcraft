@@ -12,6 +12,9 @@ mod asset_tests;
 mod assets;
 mod braces;
 mod budget;
+mod build_stop;
+#[cfg(test)]
+mod build_stop_tests;
 #[cfg(test)]
 mod budget_tests;
 mod catalog;
@@ -29,6 +32,9 @@ mod direct_tests;
 mod docs_images;
 #[cfg(test)]
 mod directory_tests;
+mod example_suites;
+#[cfg(test)]
+mod example_suites_tests;
 mod exec;
 mod exit_status;
 mod fixture_inputs;
@@ -37,6 +43,9 @@ mod heavy;
 mod heavy_covers;
 #[cfg(test)]
 mod heavy_covers_tests;
+mod heavy_files;
+#[cfg(test)]
+mod heavy_files_tests;
 mod lanes;
 mod light;
 #[cfg(test)]
@@ -94,6 +103,9 @@ mod select;
 #[cfg(test)]
 mod select_tests;
 mod single;
+mod stale_base;
+#[cfg(test)]
+mod stale_base_tests;
 #[cfg(test)]
 mod step_tests;
 mod suites;
@@ -322,6 +334,7 @@ fn changed_since(root: &Path, base: &str) -> Result<(String, Vec<String>, Vec<St
         .ok()
         .filter(|s| !s.is_empty())
         .ok_or_else(|| format!("no merge base with '{base}'"))?;
+    stale_base::warnings(root, base).iter().for_each(|w| println!("{w}"));
     let lines = |s: String| -> Vec<String> {
         s.lines()
             .filter(|l| !l.is_empty())

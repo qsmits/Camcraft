@@ -141,11 +141,14 @@ only at the cut (AGENTS.md "Pixel snapshots are release-lane", #255). The
 fix is to drop the PNG changes and update the structural assertions
 instead.
 
-A red or orange verdict also turns the PR back into a draft
-(`gh pr ready <N> --undo`): the author fixes it there, pushes, and flags it
-ready again for a fresh review (AGENTS.md "Every PR opens as a draft").
-That applies to our own PRs; a fork contributor's PR is left as they set
-it, and the review comment says what to fix.
+An orange verdict (`conflicts`) turns the PR back into a draft
+(`gh pr ready <N> --undo`): the author refreshes it there, pushes, and flags
+it ready again for a fresh review. A red verdict does not: the PR keeps its
+ready flag with `needs-rework`, and the author pushes the fix to it
+(AGENTS.md "Every PR opens as a draft", #3727). That applies to our own PRs;
+a fork contributor's PR is left as they set it, and the review comment says
+what to fix. The first `needs-rework` comment names the class of each finding
+and asks for one rule that closes the class.
 
 A conflicting PR of ours that waits for the merge batch therefore stays a
 draft until its author's agents fix it (AGENTS.md "Own blocked PRs
@@ -254,29 +257,25 @@ running session reloads `AGENTS.md`, `.claude/agents/` and
 `.claude/skills/`, and a fork runs `fork-sync`. That comment is
 how fork maintainers subscribed to #681 hear about it.
 
-## 2e. Heavy evidence - the PR form, the wave form and the owed result (#3460, #3467)
+## 2e. Targeted tests at review, no heavy lanes for each PR (#3556)
 
-AGENTS.md "Heavy lanes at review". The `PR-reviewer` agent (step 5) reads
-the heavy result of a PR from one of two sources:
-- the PR form: a green author run of all reached lanes on this head, named
-  in the PR body;
-- the wave form: a collaborator's comment that starts with
-  `<!-- heavy-wave: <tree hash> -->` (the `merge-ready` skill, step 4a).
-  The reviewer accepts it only if its `covers:` line names the current head
-  of this PR, all reached lanes are in it, and its verdict is `PASS`.
+AGENTS.md "Heavy lanes at review". A review runs small targeted tests:
+the pinning tests, the touched test binaries (the quick plan), the example
+catalog suites by name where a post or a toolpath changed, and the light
+lane. The `PR-reviewer` agent does this in steps 4 and 5.
 
-A wave record covers a PR only for the head that it names. A PR that gets
-a new commit after the run is not covered. A safety-floor PR is covered
-only if the trial tree contains its final head. "Not run" is never a pass.
-When neither source covers the current head (**Owed heavy result**,
-#3467):
-- a `P3` or lower PR: the review can set `merge-ready`. The comment says
-  "not run - owed to the wave run before merge" and names the owed lanes.
-  The merge waits for a green record that names the final head
-  (`merge-ready` skill, step 4a). "Not run" is not a pass.
-- a `P1` or `P2` PR: the strict rule stays. The reviewer runs the lanes
-  itself (PR-reviewer step 5). If they cannot run, "heavy lanes not run" is
-  a blocker, and the PR does not get `merge-ready`.
+- No PR gets the full heavy lanes. They run at the cut, in the cut gate on
+  the cut runner.
+- A diff that reaches a heavy lane is not "not ready" for that reason. No
+  PR is "owed heavy" (**Owed heavy result** is retired).
+- A `P1` PR under the safety floor gets one targeted heavy step: the
+  binary that holds the named heavy tests of the changed code
+  (`cargo xtask gate heavy --only "<crate> heavy: <target>"`). If it cannot
+  run, "targeted heavy step not run" is a blocker, and the PR does not get
+  `merge-ready`. A `P2` or lower PR gets no heavy step.
+- A `<!-- heavy-wave: <tree hash> -->` record (the `merge-ready` skill,
+  step 4a) is optional. Its absence is not a finding.
+- "Not run" is never a pass for a step that the rule requires.
 
 ## 3. Report
 

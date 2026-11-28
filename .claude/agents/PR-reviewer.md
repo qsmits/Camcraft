@@ -122,7 +122,7 @@ merge.
       line or a per-OS pinned value (issue 1402), also run the touched
       suites locally (steps 3-4, those binaries only).
    With a green or red runner verdict and no local suites owed, skip steps 3
-   and 4, then continue at step 5. The heavy check is required on both paths.
+   and 4, then continue at step 5. The step 5 check is required on both paths.
 3. **Worktree + trial merge** (local path: no runner, or the runner path
    sent you here).
    `git fetch origin && git fetch origin pull/<N>/head:pr-<N>-review`,
@@ -144,40 +144,32 @@ merge.
    background a run and wait on it: reviewers have stalled for an hour
    waiting on a run that had already died. Time box ~40 min of build+test.
 5. **Heavy check on both paths** (AGENTS.md "Heavy lanes at review").
-   This step is required after runner results and after local tests. The
-   runner runs quick and clippy only. Its green result is not a heavy result.
+   This step is required after runner results and after local tests. Do not
+   run the full heavy lanes for a PR (#3556): they run at the cut, in the
+   cut gate on the cut runner. A diff that reaches a heavy lane is not a
+   finding for that reason, and no PR is "owed heavy" (AGENTS.md
+   **Owed heavy result** is retired).
    If no local worktree exists, create it and trial-merge as in step 3, then
    return here. Do not repeat the local quick tests in step 4.
-   Run `cargo xtask gate heavy --base <main ref> --dry-run` in the review
-   worktree. It lists the release `--ignored` lanes that the diff reaches.
-   If no lanes are reached, record that result. Otherwise look for a green
-   result of all reached lanes on this head, from one of two sources:
-   - the PR form: an author run named in the PR body;
-   - the wave form (#3460): a collaborator's comment that starts with
-     `<!-- heavy-wave: <tree hash> -->`. Accept it only if its `covers:`
-     line names the current head of this PR, all reached lanes are in it,
-     and its verdict is `PASS`. A wave record covers a PR only for the head
-     that it names. A safety-floor PR is covered only if the trial tree
-     contains its final head.
-   Rely on that result only if the head and all reached lanes match, and
-   say which source it is. A wave record that names this head takes the
-   place of the author result.
-   When no result covers this head, the priority label of the PR decides
-   (AGENTS.md **Owed heavy result**, #3467):
-   - `P1` or `P2`, or no priority label: the strict rule. The heavy result
-     comes before `merge-ready`.
-     If the author result is absent, stale or incomplete, run
-     `cargo xtask gate heavy --base <main ref>` locally (outside the step 4
-     time box, one command, FOREGROUND). If the reached lanes cannot run,
-     report "heavy lanes not run" as a blocker, never a pass.
-   - `P3` or lower: write "not run - owed to the wave run before merge"
-     and name each owed lane (`<crate> heavy: <target>`). This is not a
-     pass and not a blocker. The PR can get `merge-ready`. Its merge waits
-     for a green record that names its final head (`merge-ready` skill,
-     step 4a). You can also run the lanes locally, as for `P1`.
-   A red reached
-   heavy test is a blocker. A wave record with `FAIL` on this head is a
-   blocker.
+   - Example catalog: if the diff changes a post or a toolpath, run the
+     example catalog suites (`example_catalog*` of `camcraft-app`) by test
+     name, for the cases that the diff touches.
+   - Light lane: run `cargo xtask gate light` once. A red light run is a
+     note on the PR (AGENTS.md **The light lane**), not a blocker by itself.
+   - `P1` under the safety floor (wrong output): one targeted heavy step.
+     `cargo xtask gate heavy --base <main ref> --dry-run` shows the reach.
+     Take the binary that holds the named heavy tests of the changed code,
+     and accept the author's green result of that step on this head (named
+     in the PR body). If it is absent or stale, run it yourself (outside
+     the step 4 time box, one command, FOREGROUND):
+     `cargo xtask gate heavy --base <main ref> --only "<crate> heavy: <target>"`.
+     Never run the whole lane. If the step cannot run, report "targeted
+     heavy step not run" as a blocker, never a pass. A red targeted step is
+     a blocker.
+   - `P2` or lower: no heavy step.
+   A `<!-- heavy-wave: <tree hash> -->` record (#3460) is optional
+   information. Its absence is not a finding. A record with `FAIL` on this
+   head is a finding: name the red step.
    Continue to step 6 only after this check.
 6. **Law check against AGENTS.md** - for each, cite file:line on a finding:
    - Prime Directive: no `unwrap()/expect()/panic!` outside tests; numeric
@@ -192,7 +184,11 @@ merge.
      names that crate; (b) no new `camcraft-*` dependency line without a
      `docs/decisions/` entry listing the items, why the caller cannot pass
      them in, and what rebuilds; (c) new code in `crates/app/src` reads or
-     writes the ECS world, project file, a command, MCP or the CLI.
+     writes the ECS world, project file, a command, MCP or the CLI; (d) a
+     PR that adds a new top-level file under `crates/*/tests/` has a
+     one-line reason in its body, or the file belongs to `ISOLATED`
+     (`xtask/src/lanes.rs`) or `SLOW_BINARIES` (`xtask/src/plan.rs`). If
+     not, request a change (AGENTS.md **New tests join a directory suite**).
    - Program order / rest-machining / posting / project round-trip laws if it
      touches them; project-format bumps need a forward migration and are a
      breaking change (`!` or `BREAKING CHANGE:`).
@@ -232,11 +228,11 @@ merge.
      "on the self-hosted runner: <run url>" (and main's sha from the run
      summary), "locally", or both (Windows-only readings, ui re-runs);
      a runner run that gave no verdict is named with the fallback taken;
-   - Heavy lanes: each reached lane (`<crate> heavy: <target>`) with its
-     result and who ran it (the author's run that the PR body names, the
-     `heavy-wave` record with its tree hash, or this review), or "the diff
-     reaches no heavy lane", or for a `P3` or lower PR "not run - owed to
-     the wave run before merge" with the list of owed lanes;
+   - Targeted tests (step 5): the example catalog tests that ran (or "no
+     post or toolpath change"), the light lane result, and for a `P1` PR
+     under the safety floor the targeted heavy step (`<crate> heavy:
+     <target>`) with its result and who ran it. "Not run" is never a pass
+     for a required step;
    - Requested before merge (numbered, each with file:line and the fix);
    - Questions / notes (not blocking);
    - closing line: "A maintainer will approve and merge by hand."
